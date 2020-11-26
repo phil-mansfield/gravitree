@@ -43,7 +43,7 @@ var depth = 0
 func (t *KDTree) addNode(start, end int, span [2][3]float64) {
 	
 	depth++
-	blankNode := KDNode{ -1, -1, -1, -1, -1, start, end}
+	blankNode := KDNode{ -1, -1, -1, -1, start, end}
 	i := len(t.Nodes)
 	t.Nodes = append(t.Nodes, blankNode)
 	node := &t.Nodes[i]
@@ -97,8 +97,6 @@ type KDNode struct {
 	Left, Right int // Indices of the left and right nodes in KDTree.Nodes.
 	
 	Dim int // The dimension that the split is being performed over.
-	Split float64 // Value in the split dimension.
-
 	Pivot int // The index of this node's pivot point in KDTree.Points.
 	Start, End int // The starting and ending index in KDTree.Points with this
 	               // node's points.
@@ -142,7 +140,7 @@ func partition(x [][3]float64, d int) int {
 		if x[0][d] > x[1][d] {
 			x[1], x[0] = x[0], x[1]
 		}
-		return 1
+		return 0
 	case 3:
 		max, mid, min := sort3(x[0], x[1], x[2], d)
 		x[0], x[1], x[2] = min, mid, max
