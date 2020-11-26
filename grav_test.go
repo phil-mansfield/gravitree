@@ -135,3 +135,47 @@ func benchmarkCenterOfMass(
 		tree.CenterOfMass(out[i % len(t)])
 	}
 }
+
+func BenchmarkSpan_leaf1(b *testing.B) {
+	benchmarkSpan(b, 1, 100000, -2)
+}
+func BenchmarkSpan_leaf2(b *testing.B) {
+	benchmarkSpan(b, 2, 100000, -2)
+}
+func BenchmarkSpan_leaf4(b *testing.B) {
+	benchmarkSpan(b, 4, 100000, -2)
+}
+func BenchmarkSpan_leaf8(b *testing.B) {
+	benchmarkSpan(b, 8, 100000, -2)
+}
+func BenchmarkSpan_leaf16(b *testing.B) {
+	benchmarkSpan(b, 16, 100000, -2)
+}
+func BenchmarkSpan_leaf32(b *testing.B) {
+	benchmarkSpan(b, 32, 100000, -2)
+}
+
+func benchmarkSpan(
+	b *testing.B, leafSize, points int, alpha float64,
+) {	
+	nMax := 100
+	if nMax > b.N { nMax = b.N }
+	t := make([]*KDTree, nMax)
+	out := make([][][2][3]float64, nMax)
+	
+	b.SetBytes(int64(points * 3 * 8))
+
+	span := [2][3]float64{ {-1, -1, -1}, {1, 1, 1} }
+	for i := range t {
+		x := make([][3]float64, points)
+		generatePowerLawPoints(alpha, 1.0, x)
+		t[i] = NewKDTree(x, span, leafSize)
+		out[i] = make([][2][3]float64, len(t[i].Nodes))
+	}
+	
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		tree := t[i % len(t)]
+		tree.Span(out[i % len(t)])
+	}
+}

@@ -21,6 +21,12 @@ func (tree *KDTree) CenterOfMass(out [][3]float64) {
 			// Leaf. Manually find center of mass.
 			
 			if node.Start == node.End { continue } // Empty leaf.
+			if node.Start + 1 == node.End {
+				x := tree.Points[node.Start]
+				out[i] = x
+				continue
+			}
+			
 			for j := node.Start; j < node.End; j++ {
 				for d := 0; d < 3; d++ {
 					out[i][d] += tree.Points[j][d]
@@ -64,18 +70,21 @@ func (tree *KDTree) Span(out [][2][3]float64) {
 			// Leaf. Manually compute span.
 			
 			if node.Start == node.End { continue } // Empty node.
-
+			if node.Start + 1 == node.End {
+				x := tree.Points[node.Start]
+				out[i] = [2][3]float64{ x, x }
+				continue
+			}
+			
 			// Start with the first point in the range.
 			low, high := tree.Points[node.Start], tree.Points[node.Start]
 			for j := node.Start+1; j < node.End; j++ {
 				x := tree.Points[j]
-				
-				// Loops are split up for vectorization.
 				for d := 0; d < 3; d++ {
-					if x[d] < low[d] { low[d] = x[d] }
-				}
-				for d := 0; d < 3; d++ {
-					if x[d] > high[d] { high[d] = x[d] }
+					if x[d] < low[d] {
+						low[d] = x[d]
+					} else if x[d] > high[d] {
+						high[d] = x[d] }
 				}
 			}
 			out[i] = [2][3]float64{ low, high }
@@ -89,19 +98,21 @@ func (tree *KDTree) Span(out [][2][3]float64) {
 			if left.Start != left.End { // Non-empty node.
 				leftLow, leftHigh  := out[node.Left][0], out[node.Left][1]
 				for d := 0; d < 3; d++ {
-					if leftLow[d] < low[d] { low[d] = leftLow[d] }
-				}
-				for d := 0; d < 3; d++ {
-					if leftHigh[d] > high[d] { high[d] = leftHigh[d] }
+					if leftLow[d] < low[d] {
+						low[d] = leftLow[d]
+					} else if leftHigh[d] > high[d] {
+						high[d] = leftHigh[d]
+					}
 				}
 			}
 			if right.Start != right.End { // Non-empty node.
 				rightLow, rightHigh  := out[node.Right][0], out[node.Right][1]
 				for d := 0; d < 3; d++ {
-					if rightLow[d] < low[d] { low[d] = rightLow[d] }
-				}
-				for d := 0; d < 3; d++ {
-					if rightHigh[d] > high[d] { high[d] = rightHigh[d] }
+					if rightLow[d] < low[d] {
+						low[d] = rightLow[d]
+					} else if rightHigh[d] > high[d] {
+						high[d] = rightHigh[d]
+					}
 				}
 			}
 			out[i] = [2][3]float64{ low, high }
