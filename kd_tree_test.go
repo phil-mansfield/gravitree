@@ -1,6 +1,7 @@
 package gravitree
 
 import (
+	"fmt"
 	"testing"
 	"math/rand"
 )
@@ -105,6 +106,7 @@ func TestKDTreeConsistency(t *testing.T) {
 		span [2][3]float64
 		leafSize int
 	}{
+		/*
 		{[][3]float64{{0,0,32}}, tubeSpan, 1},
 		{[][3]float64{{0,0,32}, {0,0,1}, {0,0,42}}, tubeSpan, 3},
 		{[][3]float64{{0,0,32}, {0,0,1}, {0,0,42}}, tubeSpan, 1},
@@ -113,8 +115,10 @@ func TestKDTreeConsistency(t *testing.T) {
 		{[][3]float64{{0,0,32}, {0,0,42}, {0,0,1}}, tubeSpan, 1},
 		{[][3]float64{{0,0,42}, {0,0,32}, {0,0,1}}, tubeSpan, 1},
 		{[][3]float64{{0,0,32}, {0,0,32}, {0,0,32}}, tubeSpan, 1},
+		*/
 		{[][3]float64{{0,0,0}, {0,0,10}, {0,0,20}, {0,0,30}, {0,0,40},
 			{0,0,50}, {0,0,60}, {0,0,70}, {0,0,80}}, tubeSpan, 1},
+		/*
 		{[][3]float64{{0,0,0}, {0,0,10}, {0,0,20}, {0,0,30}, {0,0,40},
 			{0,0,50}, {0,0,60}, {0,0,70}, {0,0,80}}, tubeSpan, 2},
 		{[][3]float64{{0,0,80}, {0,0,70}, {0,0,60}, {0,0,50}, {0,0,40},
@@ -123,7 +127,11 @@ func TestKDTreeConsistency(t *testing.T) {
 		{[][3]float64{{5,5,5}, {0,0,0}, {10,10,10}, {1,1,2}, {2,3,8},
 			{7,4,1}, {3,9,3}, {4,8,4}, {6,2,9}, {8,4,6}, {9,6,7}},
 			cubeSpan, 1},
+		{[][3]float64{{5,5,5}, {0,0,0}, {10,10,10}, {1,1,2}, {2,3,8},
+			{7,4,1}, {3,9,3}, {4,8,4}, {6,2,9}, {8,4,6}, {9,6,7}},
+			cubeSpan, 1},
 		{[][3]float64{{2,3,9}, {1,4,3}, {3,7,10}, {9,7,7}}, cubeSpan, 1},
+*/
 	}
 	_, _ = cubeSpan, tubeSpan
 
@@ -150,8 +158,6 @@ func TestKDTreeConsistency(t *testing.T) {
 			t.Errorf("%d) Node has points outside span", i+1)
 		}
 	}
-
-	return
 	
 	for _, leafSize := range []int{ 1, 2, 10, 100 } {
 		rand.Seed(0)
@@ -202,6 +208,7 @@ func testKDNodePointCompleteness(t *KDTree, i int, count []int) {
 			count[i]++
 		}
 	} else {
+		count[node.Pivot]++
 		testKDNodePointCompleteness(t, node.Left, count)
 		testKDNodePointCompleteness(t, node.Right, count)
 	}
@@ -233,15 +240,26 @@ func testKDNodeCompleteness(t *KDTree, i int, ok []bool) bool {
 func testKDNodeSpanConsistency(t *KDTree, i int, span [2][3]float64) bool {
 	if i == -1 { return true }
 	for d := 0; d < 3; d++ {
-		if span[0][d] >= span[1][d] { return false }
+		if span[0][d] > span[1][d] {
+			fmt.Printf("%d) Incorrect span ordering, %.0f\n", i, span)
+			return false
+		}
 	}
 
 	node := &t.Nodes[i]
 	if node.Left == -1 && node.Right == -1 { return true }
 	
 	left, right := t.splitSpan(node, span)
-	if left[0] != span[0] || right[1] != span[1] { return false }
-	if left[1][node.Dim] != right[0][node.Dim] { return false }
+	if left[0] != span[0] || right[1] != span[1] {
+		fmt.Printf("%d) left, %.0f, and right, %.0f, sub-spans don't align " +
+			"with bas span, %0f.\n", i, left, right, span)
+		return false
+	}
+	if left[1][node.Dim] != right[0][node.Dim] {
+		fmt.Printf("%d) left, %.0f, and right, %.0f, sub-spans don't align " +
+			"at node dim, %d.\n", i, left, right, node.Dim)
+		return false
+	}
 
 	return testKDNodeSpanConsistency(t, node.Left, left) &&
 		testKDNodeSpanConsistency(t, node.Right, right)
