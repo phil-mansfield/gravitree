@@ -83,9 +83,9 @@ func chooseNodeDimension(span [2][3]float64) int {
 		width[i] = span[1][i] - span[0][i]
 	}
 	
-	if width[1] > width[0] && width[1] > width[2] {
+	if width[1] >= width[0] && width[1] >= width[2] {
 		return 1
-	} else if width[2] > width[0] && width[2] > width[1] {
+	} else if width[2] >= width[0] && width[2] >= width[1] {
 		return 2
 	}
 	return 0
