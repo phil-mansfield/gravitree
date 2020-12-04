@@ -1,4 +1,4 @@
-package gravitree
+package old_gravitree
 
 import (
 	"fmt"
@@ -249,5 +249,6 @@ func dist2(x1, x2 [3]float64) float64 {
 // pointPotential computes the potential at a squared distance, r2 and force
 // softening, eps.
 func pointPotential(r2 float64, eps2 float64) float64 {
-	return -math.Pow(r2 + eps2, -0.5)
+	//return -math.Pow(r2 + eps2, -0.5)
+	return -1.0/math.Sqrt(r2 + eps2)
 }
