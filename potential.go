@@ -8,7 +8,8 @@ import (
 /* NOTE: Many of the loops in this file are very very hot, so some
 optimizations are a bit aggressive. */
 
-// Potential computes the potential for each point in the tree.
+// Potential computes the potential for each point in the tree. Potentials are
+// written to the array phi and are in units where G * mp = 1.
 func (t *Tree) Potential(eps float64, phi []float64) {
 	if len(phi) != len(t.Points) {
 		panic(fmt.Sprintf("Tree has %d points, but len(phi) = %d",
