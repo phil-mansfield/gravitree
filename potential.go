@@ -5,6 +5,7 @@ import (
 	"math"
 )
 
+// Potential computes the potential for each point in the tree.
 func (t *Tree) Potential(eps float64, phi []float64) {
 	if len(phi) != len(t.Points) {
 		panic(fmt.Sprintf("Tree has %d points, but len(phi) = %d",
@@ -26,7 +27,7 @@ func (t *Tree) Potential(eps float64, phi []float64) {
 func (t *Tree) useMonopole(i, j int) bool {
 	nodei, nodej := &t.Nodes[i], &t.Nodes[j]
 	r2 := dist2(nodei.Center, nodej.Center)
-	return r2 > nodei.RMax2 + nodej.ROpen2
+	return r2 > nodei.RMax2 + nodej.ROpen2 || r2 < t.eps2
 }
 
 // i is the index of the node that phi corresponds to, j is the index of the
@@ -70,7 +71,6 @@ func (t *Tree) monopolePotential(i, j int, phi []float64) {
 	
 	for i := nodei.Start; i < nodei.End; i++ {
 		xi, idxi := t.Points[i], t.Index[i]
-		fmt.Printf("%d %.4f %.4f\n", i, xi, xj)
 		phi[idxi] += pointPotential(dist2(xi, xj), t.eps2)*massj
 	}
 }

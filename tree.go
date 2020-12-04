@@ -41,19 +41,17 @@ type Node struct {
 
 // TreeOptions 
 type TreeOptions struct {
-	LeafSize int // Default: 8
-	Theta float64 // Default: ???
-	Criteria OpeningCriteria // Default: ???
+	LeafSize int // Default: 16
+	Theta float64 // Default: PKDGRAV
+	Criteria OpeningCriteria // Default: 0.7
 }
 
 // NewTree creates a Tree from a colleciton of vectors, x. Some additional
 // customization to this 
 func NewTree(x [][3]float64, opt ...TreeOptions) *Tree {
-	if len(opt) == 0 { opt = []TreeOptions{ {LeafSize: 8} } }
-	if opt[0].LeafSize <= 0 {
-		opt[0].LeafSize = 8
+	if len(opt) == 0 {
+		opt = []TreeOptions{ {LeafSize: 16, Theta: 0.7, Criteria: PKDGRAV3} }
 	}
-
 	t := &Tree{ Nodes: []Node{ }, LeafSize: opt[0].LeafSize,
 		Theta: opt[0].Theta, Criteria: opt[0].Criteria}
 
@@ -90,9 +88,9 @@ func (t *Tree) addNode(depth, start, end int) {
 	mid := partition(t.Points[start: end], t.Index[start: end], dim, pivot)
 	
 	node.Left = len(t.Nodes)
-	t.addNode(depth+1, start, mid)
+	t.addNode(depth+1, start, mid + start)
 	t.Nodes[i].Right = len(t.Nodes)
-	t.addNode(depth+1, mid, end)
+	t.addNode(depth+1, mid + start, end)
 }
 
 // ROpen2 computes ROpen2 for node i with the given span.
