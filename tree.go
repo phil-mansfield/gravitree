@@ -58,6 +58,11 @@ func NewTree(x [][3]float64, opt ...TreeOptions) *Tree {
 	// Initialize points and indices.
 	n := len(x)
 	t.Points, t.Index = make([][3]float64, n), make([]int, n)
+	
+	nodeEstimate := int(math.Ceil(2*float64(len(x))/float64(t.LeafSize)))
+	t.Nodes = make([]Node, nodeEstimate)
+
+	
 	copy(t.Points, x)
 	for i := range t.Index { t.Index[i] = i }
 
@@ -152,28 +157,35 @@ func (t *Tree) ROpen2PKDGRAV3(i int, span [2][3]float64) float64 {
 
 // centerOfMass returns the center of mass for a collection of points, x.
 func centerOfMass(x [][3]float64) [3]float64 {
-	sum := [3]float64{ }
+	sum := &[3]float64{ }
+	// Hot loop:
 	for i := range x {
-		for k := 0; k < 3; k++ { sum[k] += x[i][k] }
+		xi := &x[i]
+
+		sum[0] += xi[0]
+		sum[1] += xi[1]
+		sum[2] += xi[2]
 	}
 
 	n := float64(len(x))
 	for k := 0; k < 3; k++ { sum[k] /= n }
 
-	return sum
+	return *sum
 }
 
 // rMax2 returns the maximum squared distance between any point in x and the
 // center of mass.
 func rMax2(center [3]float64, x [][3]float64) float64 {
 	rMax2 := 0.0
+	c := &center
+	// Hot loop:
 	for i := range x {
-		dx2 := 0.0
-		for k := 0; k < 3; k++ {
-			dx := x[i][k] - center[k]
-			dx2 += dx*dx
-		}
-
+		xi := &x[i]
+		dx := xi[0] - c[0]
+		dy := xi[1] - c[1]
+		dz := xi[2] - c[2]
+		dx2 := dx*dx + dy*dy + dz*dz
+		
 		if dx2 > rMax2 { rMax2 = dx2 }
 	}
 
@@ -184,19 +196,29 @@ func rMax2(center [3]float64, x [][3]float64) float64 {
 func pointSpan(x [][3]float64) [2][3]float64 {
 	if len(x) == 0 { return [2][3]float64{ } }
 	
-	span := [2][3]float64{ x[0], x[0] }
-
+	min, max := x[0], x[0]
+	
+	// Host loop:
 	for i := 1; i < len(x); i++ {
-		for k := 0; k < 3; k++ {
-			if x[i][k] < span[0][k] {
-				span[0][k] = x[i][k]
-			} else if x[i][k] > span[1][k] {
-				span[1][k] = x[i][k]
-			}
+		xi := x[i]
+		if xi[0] < min[0] {
+			min[0] = xi[0]
+		} else if xi[0] > max[0] {
+			max[0] = xi[0]
+		}
+		if xi[1] < min[1] {
+			min[1] = xi[1]
+		} else if xi[1] > max[1] {
+			max[1] = xi[1]
+		}
+		if xi[2] < min[2] {
+			min[2] = xi[2]
+		} else if xi[2] > max[2] {
+			max[2] = xi[2]
 		}
 	}
 
-	return span
+	return [2][3]float64{ min, max }
 }
 
 // chooseNodeDimension returns the dimension that a node with the given span
@@ -218,9 +240,9 @@ func chooseNodeDimension(span [2][3]float64) int {
 // choosePivot returns a pivot value in dimension dim for a node containing
 // the points x with the span span.
 func choosePivot(x [][3]float64, span [2][3]float64, dim int) float64 {
+	// Midpoint of the span.
 	width := span[1][dim] - span[0][dim]
 	mid := span[0][dim] + width/2
-
 	return mid
 }
 

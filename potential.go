@@ -5,6 +5,9 @@ import (
 	"math"
 )
 
+/* NOTE: Many of the loops in this file are very very hot, so some
+optimizations are a bit aggressive. */
+
 // Potential computes the potential for each point in the tree.
 func (t *Tree) Potential(eps float64, phi []float64) {
 	if len(phi) != len(t.Points) {
@@ -26,8 +29,14 @@ func (t *Tree) Potential(eps float64, phi []float64) {
 // approximation can be used.
 func (t *Tree) useMonopole(i, j int) bool {
 	nodei, nodej := &t.Nodes[i], &t.Nodes[j]
-	r2 := dist2(nodei.Center, nodej.Center)
-	return r2 > nodei.RMax2 + nodej.ROpen2 || r2 < t.eps2
+
+	xi, xj := &nodei.Center, &nodej.Center
+	dx := xj[0] - xi[0]
+	dy := xj[1] - xi[1]
+	dz := xj[2] - xi[2]
+	dx2 := dx*dx + dy*dy + dz*dz
+
+	return dx2 > nodei.RMax2 + nodej.ROpen2 || dx2 < t.eps2
 }
 
 // i is the index of the node that phi corresponds to, j is the index of the
@@ -52,11 +61,16 @@ func (t *Tree) walkNodePotential(i, j int, phi []float64) {
 func (t *Tree) pairwisePotential(i int, phi []float64) {
 	node := &t.Nodes[i]
 	for i := node.Start; i < node.End; i++ {
-		xi, idxi := t.Points[i], t.Index[i]
+		xi, idxi := &t.Points[i], t.Index[i]
 		for j := i+1; j < node.End; j++ {
-			xj, idxj := t.Points[j], t.Index[j]
+			xj, idxj := &t.Points[j], t.Index[j]
 
-			phiij := pointPotential(dist2(xi, xj), t.eps2) 
+			dx := xj[0] - xi[0]
+			dy := xj[1] - xi[1]
+			dz := xj[2] - xi[2]
+			dx2 := dx*dx + dy*dy + dz*dz
+			
+			phiij := pointPotential(dx2, t.eps2) 
 			phi[idxi] += phiij
 			phi[idxj] += phiij
 		}
@@ -66,26 +80,38 @@ func (t *Tree) pairwisePotential(i int, phi []float64) {
 // monopolePotential computes the potential 
 func (t *Tree) monopolePotential(i, j int, phi []float64) {
 	nodei, nodej := &t.Nodes[i], &t.Nodes[j]
-	xj := nodej.Center
+	xj := &nodej.Center
 	massj := float64(nodej.End - nodej.Start)
-	
+
+	// This loop is very hot.
 	for i := nodei.Start; i < nodei.End; i++ {
-		xi, idxi := t.Points[i], t.Index[i]
-		phi[idxi] += pointPotential(dist2(xi, xj), t.eps2)*massj
+		xi, idxi := &t.Points[i], t.Index[i]
+
+		dx := xj[0] - xi[0]
+		dy := xj[1] - xi[1]
+		dz := xj[2] - xi[2]
+		dx2 := dx*dx + dy*dy + dz*dz
+		phi[idxi] += pointPotential(dx2, t.eps2)*massj
 	}
 }
+
 
 // oneSidedPotential computes the potential at every point in i using every
 // point in j.
 func (t *Tree) oneSidedPotential(i, j int, phi []float64) {
 	nodei, nodej := &t.Nodes[i], &t.Nodes[j]
 
+	// This loop is very hot.
 	for i := nodei.Start; i < nodei.End; i++ {
-		xi, idxi := t.Points[i], t.Index[i]
+		xi, idxi := &t.Points[i], t.Index[i]
 		for j := nodej.Start; j < nodej.End; j++ {
-			xj := t.Points[j]
-
-			phi[idxi] += pointPotential(dist2(xi, xj), t.eps2)
+			xj := &t.Points[j]
+			
+			dx := xj[0] - xi[0]
+			dy := xj[1] - xi[1]
+			dz := xj[2] - xi[2]
+			dx2 := dx*dx + dy*dy + dz*dz
+			phi[idxi] += pointPotential(dx2, t.eps2)
 		}
 	}
 }
