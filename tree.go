@@ -10,8 +10,17 @@ import (
 type OpeningCriteria int
 
 const (
+	// The PKDGRAV3 opening criteria (Potter, Stadel, & Teyssier 2017; S 3.1).
+	// This computes R_i for each cell: R_i = R_max/theta, where R_max is
+	// measured relative to the center of mass. Cells are opened if
+	// R < R_target + 1.5*R_i.
 	PKDGRAV3 OpeningCriteria = iota
-	SalmonWarren 
+	// This criteria is based on maximum-error analysis in Salmon & Warren
+	// (1994), although rederiving it from that paper is tedious. A concise
+	// description can be found in Behroozi, Wechsler, & Wu (2013); Appendix B.
+	SalmonWarren
+	// BarnesHut uses the classical Barnes-Hut opening criteria (Barnes & Hut
+	// 1986). Cells are opened if R > MaxWidth/theta.
 	BarnesHut
 )
 
