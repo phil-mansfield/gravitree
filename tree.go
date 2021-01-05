@@ -45,7 +45,16 @@ type TreeOptions struct {
 	LeafSize int // Default: 16
 	Criteria OpeningCriteria // Default: PKDGRAV
 	Theta float64 // Default: 0.7
-	
+
+	// Buffers which can be reused between trees to reduce allocation. They
+	// will be resized if the provided buffers are too small, but this can be
+	// prevented by setting PointsBuffer and IndexBuffer to have length len(x),
+	// and setting NodeBuffer to have length ceil(2*len(x)/LeafSize) or larger.
+	// In practice, this is only useful if you're running a simulation. In this
+	// case, just use the arrays from the previous Tree incarnation.
+	PointsBuffer [][3]float64
+	IndexBuffer []int
+	NodeBuffer []Node
 }
 
 // NewTree creates a Tree from a colleciton of vectors, x. The tree can be
@@ -69,10 +78,11 @@ func NewTree(x [][3]float64, opt ...TreeOptions) *Tree {
 
 	// Initialize points and indices.
 	n := len(x)
-	t.Points, t.Index = make([][3]float64, n), make([]int, n)
+	t.Points = append(opt[0].PointsBuffer[:0], make([][3]float64, n)...)
+	t.Index = append(opt[0].IndexBuffer[:0], make([]int, n)...)
 	
 	nodeEstimate := int(math.Ceil(2*float64(len(x))/float64(t.LeafSize)))
-	t.Nodes = make([]Node, nodeEstimate)
+	t.Nodes = append(opt[0].NodeBuffer[:0], make([]Node, nodeEstimate)...)
 
 	
 	copy(t.Points, x)
