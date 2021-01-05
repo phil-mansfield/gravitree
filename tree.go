@@ -9,24 +9,24 @@ import (
 // monopole approximation can be used for given tree node.
 type OpeningCriteria int
 
-const (	
-	SalmonWarren OpeningCriteria = iota
+const (
+	PKDGRAV3 OpeningCriteria = iota
+	SalmonWarren 
 	BarnesHut
-	PKDGRAV3
 )
 
 // Tree is a gravitational KD-tree which can be used to compute gravitaional
 // forces and potentials.
 type Tree struct {
-	Root *Node
-	Nodes []Node
+	Root *Node // The root node of the tree.
+	Nodes []Node // Array containing the Tree's Nodes.
 	
-	Points [][3]float64
-	Index []int
+	Points [][3]float64 // The (re-arranged) points in the Tree.
+	Index []int // The original indices of points in the input array.
 	
-	LeafSize int
-	Theta float64
-	Criteria OpeningCriteria
+	LeafSize int // The maximum number of points that can be stored in a leaf.
+	Criteria OpeningCriteria // Flag indicating the opening criteria.
+	Theta float64 // The critical opening angle of the chosen criteria.
 
 	eps2 float64
 }
@@ -36,22 +36,34 @@ type Node struct {
 	Center [3]float64 // Center of mass in the cell.
 	RMax2, ROpen2 float64 // Squared radii used to determine cell opening.
 	Left, Right int // The index of the left and right nodes 
-	Start, End int // The indices of 
+	Start, End int // The indices of the points within the node in Tree.Points.
 }
 
-// TreeOptions 
+// TreeOptions allows the user to specify advanced options to tune performance
+// and accuracy.
 type TreeOptions struct {
 	LeafSize int // Default: 16
-	Theta float64 // Default: PKDGRAV
-	Criteria OpeningCriteria // Default: 0.7
+	Criteria OpeningCriteria // Default: PKDGRAV
+	Theta float64 // Default: 0.7
+	
 }
 
-// NewTree creates a Tree from a colleciton of vectors, x. Some additional
-// customization to this 
+// NewTree creates a Tree from a colleciton of vectors, x. The tree can be
+// customized through the optional TreeOptions parameter. Only the first
+// TreeOptions argument will be used. If fields in the TreeOptions argument
+// Are set to zero/nil, they will be replaced with the default values.
 func NewTree(x [][3]float64, opt ...TreeOptions) *Tree {
+	// Use default
 	if len(opt) == 0 {
-		opt = []TreeOptions{ {LeafSize: 16, Theta: 0.7, Criteria: PKDGRAV3} }
+		opt = []TreeOptions{ {} }
 	}
+	if opt[0].LeafSize == 0 {
+		opt[0].LeafSize = 16
+	}
+	if opt[0].Theta == 0.0 {
+		opt[0].Theta = 0.7
+	}
+	
 	t := &Tree{ Nodes: []Node{ }, LeafSize: opt[0].LeafSize,
 		Theta: opt[0].Theta, Criteria: opt[0].Criteria}
 
