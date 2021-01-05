@@ -9,7 +9,7 @@ import (
 // monopole approximation can be used for given tree node.
 type OpeningCriteria int
 
-const (
+const (	
 	SalmonWarren OpeningCriteria = iota
 	BarnesHut
 	PKDGRAV3
@@ -84,7 +84,7 @@ func (t *Tree) addNode(depth, start, end int) {
 	t.Nodes = append(t.Nodes, blankNode)
 	node := &t.Nodes[i]
 
-	node.ROpen2 = t.ROpen2(i, span)
+	node.ROpen2 = t.rOpen2(i, span)
 	
 	if end - start <= t.LeafSize { return }
 	
@@ -98,8 +98,8 @@ func (t *Tree) addNode(depth, start, end int) {
 	t.addNode(depth+1, mid + start, end)
 }
 
-// ROpen2 computes ROpen2 for node i with the given span.
-func (t *Tree) ROpen2(i int, span [2][3]float64) float64 {
+// rOpen2 computes r_open^2 for node i with the given span.
+func (t *Tree) rOpen2(i int, span [2][3]float64) float64 {
 	node := &t.Nodes[i]
 
 	pts := t.Points[node.Start: node.End]
@@ -108,18 +108,18 @@ func (t *Tree) ROpen2(i int, span [2][3]float64) float64 {
 	
 	switch t.Criteria {
 	case SalmonWarren:
-		return t.ROpen2SalmonWarren(i, span)
+		return t.rOpen2SalmonWarren(i, span)
 	case BarnesHut:
-		return t.ROpen2BarnesHut(i, span)
+		return t.rOpen2BarnesHut(i, span)
 	case PKDGRAV3:
-		return t.ROpen2PKDGRAV3(i, span)
+		return t.rOpen2PKDGRAV3(i, span)
 	}
 	panic(fmt.Sprintf("Unknown tree criteria %d.", t.Criteria))
 }
 
-// ROpen2PKDGRAV computes r_open^2 for the node, i, with span, span, using the
+// rOpen2PKDGRAV computes r_open^2 for the node, i, with span, span, using the
 // Salmon-Warren monopole criteria.
-func (t *Tree) ROpen2SalmonWarren(i int, span [2][3]float64) float64 {
+func (t *Tree) rOpen2SalmonWarren(i int, span [2][3]float64) float64 {
 	node := &t.Nodes[i]
 	rMax := math.Sqrt(node.RMax2)
 	
@@ -136,9 +136,9 @@ func (t *Tree) ROpen2SalmonWarren(i int, span [2][3]float64) float64 {
 	return rOpen*rOpen
 }
 
-// ROpen2PKDGRAV computes r_open^2 for the node, i, with span, span, using the
+// rOpen2PKDGRAV computes r_open^2 for the node, i, with span, span, using the
 // classic Barnes-Hut criteria
-func (t *Tree) ROpen2BarnesHut(i int, span [2][3]float64) float64 {
+func (t *Tree) rOpen2BarnesHut(i int, span [2][3]float64) float64 {
 	width := span[1][0] - span[0][0]
 	for k := 1; k < 3; k++ {
 		dx := span[1][k] - span[0][k]
@@ -148,9 +148,9 @@ func (t *Tree) ROpen2BarnesHut(i int, span [2][3]float64) float64 {
 	return width*width / (t.Theta*t.Theta)
 }
 
-// ROpen2PKDGRAV3 computes r_open^2 for the node, i, with span, span, using the
+// rOpen2PKDGRAV3 computes r_open^2 for the node, i, with span, span, using the
 // PKDGRAV3 criteria.
-func (t *Tree) ROpen2PKDGRAV3(i int, span [2][3]float64) float64 {
+func (t *Tree) rOpen2PKDGRAV3(i int, span [2][3]float64) float64 {
 	node := &t.Nodes[i]
 	return 1.5*1.5 * node.RMax2 / (t.Theta*t.Theta)
 }
