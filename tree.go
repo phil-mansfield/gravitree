@@ -10,23 +10,32 @@ import (
 type OpeningCriteria int
 
 const (
-	SalmonWarren OpeningCriteria = iota
+	// The PKDGRAV3 opening criteria (Potter, Stadel, & Teyssier 2017; S 3.1).
+	// This computes R_i for each cell: R_i = R_max/theta, where R_max is
+	// measured relative to the center of mass. Cells are opened if
+	// R < R_target + 1.5*R_i.
+	PKDGRAV3 OpeningCriteria = iota
+	// This criteria is based on maximum-error analysis in Salmon & Warren
+	// (1994), although rederiving it from that paper is tedious. A concise
+	// description can be found in Behroozi, Wechsler, & Wu (2013); Appendix B.
+	SalmonWarren
+	// BarnesHut uses the classical Barnes-Hut opening criteria (Barnes & Hut
+	// 1986). Cells are opened if R > MaxWidth/theta.
 	BarnesHut
-	PKDGRAV3
 )
 
 // Tree is a gravitational KD-tree which can be used to compute gravitaional
 // forces and potentials.
 type Tree struct {
-	Root *Node
-	Nodes []Node
+	Root *Node // The root node of the tree.
+	Nodes []Node // Array containing the Tree's Nodes.
 	
-	Points [][3]float64
-	Index []int
+	Points [][3]float64 // The (re-arranged) points in the Tree.
+	Index []int // The original indices of points in the input array.
 	
-	LeafSize int
-	Theta float64
-	Criteria OpeningCriteria
+	LeafSize int // The maximum number of points that can be stored in a leaf.
+	Criteria OpeningCriteria // Flag indicating the opening criteria.
+	Theta float64 // The critical opening angle of the chosen criteria.
 
 	eps2 float64
 }
@@ -36,31 +45,53 @@ type Node struct {
 	Center [3]float64 // Center of mass in the cell.
 	RMax2, ROpen2 float64 // Squared radii used to determine cell opening.
 	Left, Right int // The index of the left and right nodes 
-	Start, End int // The indices of 
+	Start, End int // The indices of the points within the node in Tree.Points.
 }
 
-// TreeOptions 
+// TreeOptions allows the user to specify advanced options to tune performance
+// and accuracy.
 type TreeOptions struct {
 	LeafSize int // Default: 16
-	Theta float64 // Default: PKDGRAV
-	Criteria OpeningCriteria // Default: 0.7
+	Criteria OpeningCriteria // Default: PKDGRAV
+	Theta float64 // Default: 0.7
+
+	// Buffers which can be reused between trees to reduce allocation. They
+	// will be resized if the provided buffers are too small, but this can be
+	// prevented by setting PointsBuffer and IndexBuffer to have length len(x),
+	// and setting NodeBuffer to have length ceil(2*len(x)/LeafSize) or larger.
+	// In practice, this is only useful if you're running a simulation. In this
+	// case, just use the arrays from the previous Tree incarnation.
+	PointsBuffer [][3]float64
+	IndexBuffer []int
+	NodeBuffer []Node
 }
 
-// NewTree creates a Tree from a colleciton of vectors, x. Some additional
-// customization to this 
+// NewTree creates a Tree from a colleciton of vectors, x. The tree can be
+// customized through the optional TreeOptions parameter. Only the first
+// TreeOptions argument will be used. If fields in the TreeOptions argument
+// Are set to zero/nil, they will be replaced with the default values.
 func NewTree(x [][3]float64, opt ...TreeOptions) *Tree {
+	// Use default
 	if len(opt) == 0 {
-		opt = []TreeOptions{ {LeafSize: 16, Theta: 0.7, Criteria: PKDGRAV3} }
+		opt = []TreeOptions{ {} }
 	}
+	if opt[0].LeafSize == 0 {
+		opt[0].LeafSize = 16
+	}
+	if opt[0].Theta == 0.0 {
+		opt[0].Theta = 0.7
+	}
+	
 	t := &Tree{ Nodes: []Node{ }, LeafSize: opt[0].LeafSize,
 		Theta: opt[0].Theta, Criteria: opt[0].Criteria}
 
 	// Initialize points and indices.
 	n := len(x)
-	t.Points, t.Index = make([][3]float64, n), make([]int, n)
+	t.Points = append(opt[0].PointsBuffer[:0], make([][3]float64, n)...)
+	t.Index = append(opt[0].IndexBuffer[:0], make([]int, n)...)
 	
 	nodeEstimate := int(math.Ceil(2*float64(len(x))/float64(t.LeafSize)))
-	t.Nodes = make([]Node, 0, nodeEstimate)
+	t.Nodes = append(opt[0].NodeBuffer[:0], make([]Node, nodeEstimate)...)
 	
 	copy(t.Points, x)
 	for i := range t.Index { t.Index[i] = i }
@@ -84,7 +115,7 @@ func (t *Tree) addNode(depth, start, end int) {
 	t.Nodes = append(t.Nodes, blankNode)
 	node := &t.Nodes[i]
 
-	node.ROpen2 = t.ROpen2(i, span)
+	node.ROpen2 = t.rOpen2(i, span)
 	
 	if end - start <= t.LeafSize { return }
 	
@@ -98,8 +129,8 @@ func (t *Tree) addNode(depth, start, end int) {
 	t.addNode(depth+1, mid + start, end)
 }
 
-// ROpen2 computes ROpen2 for node i with the given span.
-func (t *Tree) ROpen2(i int, span [2][3]float64) float64 {
+// rOpen2 computes r_open^2 for node i with the given span.
+func (t *Tree) rOpen2(i int, span [2][3]float64) float64 {
 	node := &t.Nodes[i]
 
 	pts := t.Points[node.Start: node.End]
@@ -108,18 +139,18 @@ func (t *Tree) ROpen2(i int, span [2][3]float64) float64 {
 	
 	switch t.Criteria {
 	case SalmonWarren:
-		return t.ROpen2SalmonWarren(i, span)
+		return t.rOpen2SalmonWarren(i, span)
 	case BarnesHut:
-		return t.ROpen2BarnesHut(i, span)
+		return t.rOpen2BarnesHut(i, span)
 	case PKDGRAV3:
-		return t.ROpen2PKDGRAV3(i, span)
+		return t.rOpen2PKDGRAV3(i, span)
 	}
 	panic(fmt.Sprintf("Unknown tree criteria %d.", t.Criteria))
 }
 
-// ROpen2PKDGRAV computes r_open^2 for the node, i, with span, span, using the
+// rOpen2PKDGRAV computes r_open^2 for the node, i, with span, span, using the
 // Salmon-Warren monopole criteria.
-func (t *Tree) ROpen2SalmonWarren(i int, span [2][3]float64) float64 {
+func (t *Tree) rOpen2SalmonWarren(i int, span [2][3]float64) float64 {
 	node := &t.Nodes[i]
 	rMax := math.Sqrt(node.RMax2)
 	
@@ -136,9 +167,9 @@ func (t *Tree) ROpen2SalmonWarren(i int, span [2][3]float64) float64 {
 	return rOpen*rOpen
 }
 
-// ROpen2PKDGRAV computes r_open^2 for the node, i, with span, span, using the
+// rOpen2PKDGRAV computes r_open^2 for the node, i, with span, span, using the
 // classic Barnes-Hut criteria
-func (t *Tree) ROpen2BarnesHut(i int, span [2][3]float64) float64 {
+func (t *Tree) rOpen2BarnesHut(i int, span [2][3]float64) float64 {
 	width := span[1][0] - span[0][0]
 	for k := 1; k < 3; k++ {
 		dx := span[1][k] - span[0][k]
@@ -148,9 +179,9 @@ func (t *Tree) ROpen2BarnesHut(i int, span [2][3]float64) float64 {
 	return width*width / (t.Theta*t.Theta)
 }
 
-// ROpen2PKDGRAV3 computes r_open^2 for the node, i, with span, span, using the
+// rOpen2PKDGRAV3 computes r_open^2 for the node, i, with span, span, using the
 // PKDGRAV3 criteria.
-func (t *Tree) ROpen2PKDGRAV3(i int, span [2][3]float64) float64 {
+func (t *Tree) rOpen2PKDGRAV3(i int, span [2][3]float64) float64 {
 	node := &t.Nodes[i]
 	return 1.5*1.5 * node.RMax2 / (t.Theta*t.Theta)
 }

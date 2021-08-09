@@ -184,7 +184,7 @@ func TestROpen2(t *testing.T) {
 		tree.Criteria = test.criteria
 		tree.Theta = test.theta
 
-		rOpen2 := tree.ROpen2(0, span)
+		rOpen2 := tree.rOpen2(0, span)
 		rOpen := math.Sqrt(rOpen2)
 
 		if !almostEq(rOpen, test.rOpen, 1e-5) {
