@@ -60,17 +60,17 @@ func NewTree(x [][3]float64, opt ...TreeOptions) *Tree {
 	t.Points, t.Index = make([][3]float64, n), make([]int, n)
 	
 	nodeEstimate := int(math.Ceil(2*float64(len(x))/float64(t.LeafSize)))
-	t.Nodes = make([]Node, nodeEstimate)
-
+	t.Nodes = make([]Node, 0, nodeEstimate)
 	
 	copy(t.Points, x)
 	for i := range t.Index { t.Index[i] = i }
 
 	if len(x) == 0 { return t }
 
+
 	t.addNode(0, 0, len(x))
 	t.Root = &t.Nodes[0]
-	
+
 	return t
 }
 
