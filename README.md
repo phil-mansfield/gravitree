@@ -1,7 +1,7 @@
 # gravitree
 A tree code for quickly computing gravitational forces for large collections of particles. Written in Go. Documentation can be found [here](https://pkg.go.dev/github.com/phil-mansfield/gravitree).
 
-Author: Phil Mansfield, Ph.D
+Author: Phil Mansfield
 
 ## Background
 
