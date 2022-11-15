@@ -13,24 +13,29 @@ func IterativeBindingEnergy(
 ) {
 	ok := make([]bool, len(x))
 	nPrev := len(x)
+	inf := math.Inf(+1)
 	for i := range ok { ok[i] = true }
 
 	for j := 0; j < iters || nPrev == 0; j++ {
+		nOk := 0
+		for i := range ok {
+			if ok[i] { nOk++ }
+		}
+
 		bindingEnergy(x, v, ok, mp, eps, E)
 
 		nCurr := 0
 		for i := range ok {
 			ok[i] = ok[i] && E[i] < 0
-			if ok[i] { nCurr++ }
+			if ok[i] {
+				nCurr++
+			} else {
+				E[i] = inf
+			}
 		}
-
+		
 		if nCurr == nPrev { break }
 		nPrev = nCurr
-	}
-
-	inf := math.Inf(+1)
-	for i := range ok {
-		if !ok[i] { E[i] = inf }
 	}
 }
 
@@ -42,14 +47,14 @@ func bindingEnergy(
 		if ok[i] { n0++ }
 	}
 	
-	x0 := make([][3]float64, len(x))
-	v0 := make([][3]float64, len(v))
-	E0 := make([]float64, len(x))
+	x0 := make([][3]float64, n0)
+	v0 := make([][3]float64, n0)
+	E0 := make([]float64, n0)
 
 	j := 0
 	for i := range x {
 		if ok[i] {
-			x0[j], v0[j], E0[j] = x[i], v[i], E[i]
+			x0[j], v0[j] = x[i], v[i]
 			j++
 		}
 	}
@@ -58,6 +63,11 @@ func bindingEnergy(
 	tree.Potential(eps, E0)
 
 	j = 0
+	nOk := 0
+	for i := range ok {
+		if ok[i] { nOk++ }
+	}
+
 	for i := range ok {
 		if ok[i] {
 			v2 := 0.0
