@@ -22,6 +22,17 @@ func cIterativeBindingEnergy(
 		gx, gv, float64(mp), float64(eps), int(nIter), gE)
 }
 
+//export cPotentialEnergy
+func cPotentialEnergy(
+	np C.longlong, x *C.double,
+	mp, eps C.double, E *C.double,
+) {
+	gx := ptrToVec64(unsafe.Pointer(x), int(np))
+	gE := ptrToFloat64(unsafe.Pointer(E), int(np))
+
+	gravitree.PotentialEnergy(gx, float64(mp), float64(eps), gE)
+}
+
 func ptrToFloat64(ptr unsafe.Pointer, n int) []float64 {
 	slice := []float64{ }
 	hd := (*reflect.SliceHeader)(unsafe.Pointer(&slice))
