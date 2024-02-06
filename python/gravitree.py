@@ -1,8 +1,11 @@
 import ctypes
 import numpy as np
 import numpy.ctypeslib as ctypeslib
+import os.path as path
 
-gravitree_lib = ctypes.cdll.LoadLibrary("/home/users/phil1/code/src/github.com/phil-mansfield/gravitree/python/gravitree_wrapper.so")
+file_name = path.abspath(__file__)
+lib_name = path.join(path.dirname(file_name), "gravitree_wrapper.so")
+gravitree_lib = ctypes.cdll.LoadLibrary(lib_name)
 _c_iterative_binding_energy = gravitree_lib.cIterativeBindingEnergy
 _c_iterative_binding_energy.restype = None
 _c_iterative_binding_energy.argtypes = [
