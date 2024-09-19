@@ -43,7 +43,7 @@ type Tree struct {
 // Node is KD-node in a gravitational tree.
 type Node struct {
 	Center [3]float64 // Center of mass in the cell.
-	RMax2, ROpen2 float64 // Squared radii used to determine cell opening.
+	RMax, RMax2, ROpen2 float64 // Radii used to determine cell opening.
 	Left, Right int // The index of the left and right nodes 
 	Start, End int // The indices of the points within the node in Tree.Points.
 }
@@ -64,6 +64,20 @@ type TreeOptions struct {
 	PointsBuffer [][3]float64
 	IndexBuffer []int
 	NodeBuffer []Node
+}
+
+// Reuse creates a Tree which reuses the internal buffers and configuration
+// options of a given tree. If you make a new tree using this, all the data
+// in the old tree gets invalidated.
+func (t *Tree) Reuse() TreeOptions {
+	return TreeOptions{
+		LeafSize: t.LeafSize,
+		Criteria: t.Criteria,
+		Theta: t.Theta,
+		PointsBuffer: t.Points[:0],
+		IndexBuffer: t.Index[:0],
+		NodeBuffer: t.Nodes[:0],
+	}
 }
 
 // NewTree creates a Tree from a colleciton of vectors, x. The tree can be
@@ -109,7 +123,7 @@ func NewTree(x [][3]float64, opt ...TreeOptions) *Tree {
 // addNode adds a node to a tree which corresponds to points in the range
 // [start: end] and a given depth.
 func (t *Tree) addNode(depth, start, end int) {
-	blankNode := Node{ [3]float64{}, 0, 0, -1, -1, start, end }
+	blankNode := Node{ [3]float64{}, 0, 0, 0, -1, -1, start, end }
 	span := pointSpan(t.Points[start: end])
 	
 	i := len(t.Nodes)
@@ -136,7 +150,7 @@ func (t *Tree) rOpen2(i int, span [2][3]float64) float64 {
 
 	pts := t.Points[node.Start: node.End]
 	node.Center = centerOfMass(pts)
-	node.RMax2 = rMax2(node.Center, pts)
+	node.RMax, node.RMax2 = rMax2(node.Center, pts)
 	
 	switch t.Criteria {
 	case SalmonWarren:
@@ -207,8 +221,7 @@ func centerOfMass(x [][3]float64) [3]float64 {
 
 // rMax2 returns the maximum squared distance between any point in x and the
 // center of mass.
-func rMax2(center [3]float64, x [][3]float64) float64 {
-	rMax2 := 0.0
+func rMax2(center [3]float64, x [][3]float64) (rMax, rMax2 float64) {
 	c := &center
 	// Hot loop:
 	for i := range x {
@@ -221,7 +234,7 @@ func rMax2(center [3]float64, x [][3]float64) float64 {
 		if dx2 > rMax2 { rMax2 = dx2 }
 	}
 
-	return rMax2
+	return math.Sqrt(rMax2), rMax2
 }
 
 // pointSpan returns the span of a collection of points.
