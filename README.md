@@ -1,8 +1,6 @@
 # gravitree
 A tree code for quickly computing gravitational forces for large collections of particles. Written in Go. Documentation can be found [here](https://pkg.go.dev/github.com/phil-mansfield/gravitree).
 
-Author: Phil Mansfield
-
 ## Background
 
 Computing gravitational forces typically requires O(N^2) calculations between every pair of particles. There are many approaches to getting these forces without doing this much work. One popular approach is to build a tree which breaks particles into a hierarchy groups based on position. Examples of these types of trees include [octrees](https://en.wikipedia.org/wiki/Octree), [k-d trees](https://en.wikipedia.org/wiki/K-d_tree), [R trees](https://en.wikipedia.org/wiki/R-tree), and uniformly spaced bins.
