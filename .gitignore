@@ -22,3 +22,4 @@ python/gravitree_wrapper.h
 
 # Files
 .DS_Store
+tmp/
