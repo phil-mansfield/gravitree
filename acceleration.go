@@ -45,9 +45,9 @@ func pointAcceleration(x [3]float64, eps2 float64) [3]float64 {
 	r2 := x[0]*x[0] + x[1]*x[1] + x[2]*x[2] + eps2
 	r := math.Sqrt(r2)
 	return [3]float64{
-		-1 * x[0] / (r * r2),
-		-1 * x[1] / (r * r2),
-		-1 * x[2] / (r * r2)}
+		x[0] / (r * r2),
+		x[1] / (r * r2),
+		x[2] / (r * r2)}
 }
 
 func (t *Tree) oneSidedAcceleration(i, j int, acc [][3]float64) {

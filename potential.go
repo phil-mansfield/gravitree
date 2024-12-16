@@ -66,6 +66,8 @@ func (t *Tree) pairwisePotential(i int, phi []float64) {
 		for j := i + 1; j < node.End; j++ {
 			xj, idxj := &t.Points[j], t.Index[j]
 
+			//momentArray.AddMonopoleTwoSided(i, j, xi, xj, 1, eps)
+
 			dx := xj[0] - xi[0]
 			dy := xj[1] - xi[1]
 			dz := xj[2] - xi[2]

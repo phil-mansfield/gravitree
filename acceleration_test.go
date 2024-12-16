@@ -1,6 +1,7 @@
 package gravitree
 
 import (
+	"math"
 	"testing"
 )
 
@@ -9,23 +10,23 @@ func TestAccelerationPrimitives(t *testing.T) {
 		acc [][3]float64
 	}{
 		{[][3]float64{
-			{0, 0, -1.25},
-			{0, 0, 0},
 			{0, 0, 1.25},
+			{0, 0, 0},
+			{0, 0, -1.25},
 			{0, 0, 0},
 			{0, 0, 0},
 			{0, 0, 0}}}, // pairwise
 		{[][3]float64{
-			{0, -1.44299611, -0.53243883},
-			{0, -1.70710678, 0.0},
-			{0, -1.44299611, 0.53243883},
+			{0, 1.44299611, 0.53243883},
+			{0, 1.70710678, 0.0},
+			{0, 1.44299611, -0.53243883},
 			{0, 0, 0},
 			{0, 0, 0},
 			{0, 0, 0}}}, // one-sided
 		{[][3]float64{
-			{0, -1.06066017, -1.06066017},
-			{0, -3, 0},
-			{0, -1.06066017, 1.06066017},
+			{0, 1.06066017, 1.06066017},
+			{0, 3, 0},
+			{0, 1.06066017, -1.06066017},
 			{0, 0, 0.},
 			{0, 0, 0.},
 			{0, 0, 0.}}}, // monopole
@@ -67,6 +68,8 @@ func TestAccelerationPrimitives(t *testing.T) {
 	}
 }
 
+// should probably make a generic function so
+// we don't have to keep flattening these damn things!
 func flatten3(x [][3]float64) []float64 {
 	flat := make([]float64, len(x)*3)
 
@@ -88,4 +91,36 @@ func TestAccelerationInfiniteRecursion(t *testing.T) {
 
 	acc := make([][3]float64, len(x))
 	tree.Acceleration(1.0, acc)
+}
+
+func TestAccelerationPlummer(t *testing.T) {
+	filename := "plummer.txt"
+	x, _ := readFile(filename)
+
+	tree := NewTree(x)
+	acc := make([][3]float64, len(x))
+	tree.Acceleration(0.0, acc)
+
+	// Pick a point.
+	// Get acceleration at that point.
+	point_indices := []int{100, 200, 300, 400}
+	tests := []float64{
+		59.368353172483474, 19.901143518711194,
+		105.38602360919192, 198.25726650663177}
+
+	for k, point_index := range point_indices {
+		acc_at_point := acc[point_index]
+
+		// fmt.Printf("%v———%v\n", x[point_index], acc[point_index])
+		var acc_mag float64
+		for i := 0; i < 3; i++ {
+			acc_mag += acc_at_point[i] * acc_at_point[i]
+		}
+		acc_mag = math.Sqrt(acc_mag)
+
+		// check if it matches
+		if !almostEq(acc_mag, tests[k], 1e-3) {
+			t.Errorf("(%d.0) expected acc = %.4f, got acc = %.4f", k, tests[k], acc_mag)
+		}
+	}
 }
