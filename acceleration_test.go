@@ -35,7 +35,7 @@ func TestAccelerationPrimitives(t *testing.T) {
 	tree.Points = [][3]float64{{0, 0, 0}, {0, 0, 2}, {0, 0, 1},
 		{0, 1, 1}, {0, 1, 0}, {0, 1, 2}}
 	tree.Index = []int{0, 2, 1, 4, 3, 5}
-	acc := make([][3]float64, 6)
+	acc := make(Acceleration, 6)
 
 	tree.Nodes = []Node{{Start: 0, End: 3, Center: [3]float64{0, 0, 1}},
 		{Start: 3, End: 6, Center: [3]float64{0, 1, 1}}}
@@ -51,11 +51,11 @@ func TestAccelerationPrimitives(t *testing.T) {
 
 		switch i {
 		case 0:
-			tree.pairwiseAcceleration(0, acc)
+			tree.Pairwise(0, acc)
 		case 1:
-			tree.oneSidedAcceleration(0, 1, acc)
+			tree.OneSided(0, 1, acc)
 		case 2:
-			tree.monopoleAcceleration(0, 1, acc)
+			tree.Monopole(0, 1, acc)
 		}
 
 		flat_acc := flatten3(acc)
@@ -89,17 +89,17 @@ func TestAccelerationInfiniteRecursion(t *testing.T) {
 
 	tree := NewTree(x)
 
-	acc := make([][3]float64, len(x))
-	tree.Acceleration(1.0, acc)
+	acc := make(Acceleration, len(x))
+	tree.Quantity(1.0, acc)
 }
 
 func TestAccelerationPlummer(t *testing.T) {
 	filename := "plummer.txt"
-	x, _ := readFile(filename)
+	x := readFile(filename)
 
 	tree := NewTree(x)
-	acc := make([][3]float64, len(x))
-	tree.Acceleration(0.0, acc)
+	acc := make(Acceleration, len(x))
+	tree.Quantity(0.0, acc)
 
 	// Pick a point.
 	// Get acceleration at that point.

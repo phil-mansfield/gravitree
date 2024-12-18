@@ -1,14 +1,9 @@
 package gravitree
 
 import (
-	"bufio"
-	"os"
-	"strconv"
-	"strings"
 	"testing"
 
-	"fmt"
-
+	"github.com/phil-mansfield/symtable"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -82,7 +77,7 @@ func TestTidalTensorSinglePoint(t *testing.T) {
 		{0, 1, 1}, {0, 1, 0}, {0, 1, 2}}
 	tree.Index = []int{0, 2, 1, 4, 3, 5}
 
-	tT := make([][3][3]float64, 6)
+	tT := make(TidalTensor, 6)
 
 	tree.Nodes = []Node{{Start: 0, End: 3, Center: [3]float64{0, 0, 1}},
 		{Start: 3, End: 6, Center: [3]float64{0, 1, 1}}}
@@ -98,27 +93,15 @@ func TestTidalTensorSinglePoint(t *testing.T) {
 
 		switch i {
 		case 0:
-			tree.pairwiseTidalTensor(0, tT)
+			tree.Pairwise(0, tT)
 		case 1:
-			tree.oneSidedTidalTensor(0, 1, tT)
+			tree.OneSided(0, 1, tT)
 		case 2:
-			tree.monopoleTidalTensor(0, 1, tT)
+			tree.Monopole(0, 1, tT)
 		}
 
 		flat_mat := flatten9(tT)
 		flat_test := flatten9(test.tT)
-
-		// flat_mat := make([]float64, 6)
-		// flat_test := make([]float64, 6)
-
-		// for k := range flat_mat {
-		// 	for i := 0; i < 3; i++ {
-		// 		for j := 0; j < 3; j++ {
-		// 			flat_mat[k*9+i+j] = tT[k][i][j]
-		// 			flat_test[k*9+i+j] = test.tT[k][i][j]
-		// 		}
-		// 	}
-		// }
 
 		if !multArrayAlmostEq(flat_mat, 1.0, flat_test, 1e-3) {
 			t.Errorf("%d.0) expected 1*%.4f, but got %.4f.",
@@ -145,11 +128,7 @@ func flatten9(x [][3][3]float64) []float64 {
 
 func TestTidalTensorPlummer(t *testing.T) {
 	filename := "plummer.txt"
-	x, err := readFile(filename)
-
-	if err != nil {
-		t.Fatal(err)
-	}
+	x := readFile(filename)
 
 	point_indices := []int{100, 200, 300, 400}
 
@@ -158,8 +137,8 @@ func TestTidalTensorPlummer(t *testing.T) {
 		-0.049879254759283294, -0.034753012028661934}
 
 	tree := NewTree(x)
-	tensor := make([][3][3]float64, len(x))
-	tree.TidalTensor(0.0, tensor)
+	tensor := make(TidalTensor, len(x))
+	tree.Quantity(0.0, tensor)
 
 	// Pick a point.
 	// Get tensor at that point.
@@ -184,7 +163,7 @@ func TestTidalTensorPlummer(t *testing.T) {
 		eig.Factorize(mat.NewDense(3, 3, flat_mat), mat.EigenBoth)
 		eigenvalues := eig.Values(nil)
 
-		fmt.Printf("%v \n", eigenvalues)
+		// fmt.Printf("%v \n", eigenvalues)
 
 		real_part := []float64{0, 0, 0}
 
@@ -196,7 +175,7 @@ func TestTidalTensorPlummer(t *testing.T) {
 
 		// check if it matches
 		if !almostEq(min_eigenvalue, tests[k], 1e-3) {
-			t.Errorf("(%d.0) expected %.4f, got %.4f",
+			t.Errorf("(%d.0) min. eigval. expected %.4f, got %.4f",
 				k, tests[k], min_eigenvalue)
 		}
 	}
@@ -204,39 +183,25 @@ func TestTidalTensorPlummer(t *testing.T) {
 
 // replace this with symphony_pipeline reader
 // at some point.
-func readFile(filename string) (points [][3]float64, err error) {
-	file, err := os.Open(filename)
+func readFile(filename string) (points [][3]float64) {
 
-	if err != nil {
-		return nil, err
-	}
-
-	defer file.Close()
+	t := symtable.TextFile(filename)
+	cols := t.ReadFloat64s([]int{0, 1, 2}) // column indices
+	xs := cols[0]
+	ys := cols[1]
+	zs := cols[2]
 
 	var result [][3]float64
 
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		line := scanner.Text()
-		fields := strings.Fields(line)
-		if len(fields) != 3 {
-			return nil, err
-		}
-
+	for i := 0; i < len(xs); i++ {
 		var point [3]float64
-
-		for i := 0; i < 3; i++ {
-			val, err := strconv.ParseFloat(fields[i], 64)
-			if err != nil {
-				return nil, err
-			}
-			point[i] = val
-		}
-
+		point[0] = xs[i]
+		point[1] = ys[i]
+		point[2] = zs[i]
 		result = append(result, point)
 	}
 
-	return result, nil
+	return result
 }
 
 func findMin(arr []float64) float64 {

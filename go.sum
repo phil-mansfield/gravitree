@@ -1,2 +1,6 @@
+github.com/phil-mansfield/symtable v0.0.1 h1:+fr3P0kN+nNcV/kz7+Lpj3/3lwhPeNYW4aAgWrg7zU4=
+github.com/phil-mansfield/symtable v0.0.1/go.mod h1:2WDmjJnnOd1GJyCL4/3tTC8HNtieFgXV9ShbXu75LaM=
+github.com/phil-mansfield/table v1.0.1 h1:iumN+nPNBjd5RmLQR996JHOKD0c1UN0t67X1TD26ngg=
+github.com/phil-mansfield/table v1.0.1/go.mod h1:yMPvKaLKI+gjI++628Qzo7pHpWP+C63QGJAzXHLjqB4=
 gonum.org/v1/gonum v0.15.1 h1:FNy7N6OUZVUaWG9pTiD+jlhdQ3lMP+/LcTpJ6+a8sQ0=
 gonum.org/v1/gonum v0.15.1/go.mod h1:eZTZuRFrzu5pcyjN5wJhcIhnUdNijYxX1T2IcrOGY0o=
