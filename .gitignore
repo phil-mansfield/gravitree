@@ -23,3 +23,6 @@ python/gravitree_wrapper.h
 # Files
 .DS_Store
 tmp/
+
+# text files containing randomly generated points
+*.dat
