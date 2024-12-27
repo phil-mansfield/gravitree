@@ -19,6 +19,7 @@ scripts/
 # Python output
 */__pycache__/
 python/gravitree_wrapper.h
+python/gravitree.h
 
 # Files
 .DS_Store

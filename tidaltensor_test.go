@@ -2,8 +2,6 @@ package gravitree
 
 import (
 	"testing"
-
-	"github.com/phil-mansfield/symtable"
 	"gonum.org/v1/gonum/mat"
 )
 
@@ -128,8 +126,8 @@ func flatten9(x [][3][3]float64) []float64 {
 
 func TestTidalTensorPlummer(t *testing.T) {
 	t.Skip()
-	filename := "plummer.txt"
-	x := readFile(filename)
+	filename := "test_files/einasto_n=3_a=18.dat"
+	x := readPointFile(filename)
 
 	point_indices := []int{100, 200, 300, 400}
 
@@ -180,29 +178,6 @@ func TestTidalTensorPlummer(t *testing.T) {
 				k, tests[k], min_eigenvalue)
 		}
 	}
-}
-
-// replace this with symphony_pipeline reader
-// at some point.
-func readFile(filename string) (points [][3]float64) {
-
-	t := symtable.TextFile(filename)
-	cols := t.ReadFloat64s([]int{0, 1, 2}) // column indices
-	xs := cols[0]
-	ys := cols[1]
-	zs := cols[2]
-
-	var result [][3]float64
-
-	for i := 0; i < len(xs); i++ {
-		var point [3]float64
-		point[0] = xs[i]
-		point[1] = ys[i]
-		point[2] = zs[i]
-		result = append(result, point)
-	}
-
-	return result
 }
 
 func findMin(arr []float64) float64 {

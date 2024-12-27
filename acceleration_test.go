@@ -95,8 +95,8 @@ func TestAccelerationInfiniteRecursion(t *testing.T) {
 
 func TestAccelerationPlummer(t *testing.T) {
 	t.Skip()
-	filename := "plummer.txt"
-	x := readFile(filename)
+	filename := "test_files/einasto_n=3_a=18.dat"
+	x := readPointFile(filename)
 
 	tree := NewTree(x)
 	acc := make(Acceleration, len(x))
