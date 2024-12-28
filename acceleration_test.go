@@ -35,11 +35,11 @@ func TestAccelerationPrimitives(t *testing.T) {
 	tree.Points = [][3]float64{{0, 0, 0}, {0, 0, 2}, {0, 0, 1},
 		{0, 1, 1}, {0, 1, 0}, {0, 1, 2}}
 	tree.Index = []int{0, 2, 1, 4, 3, 5}
-	acc := make(Acceleration, 6)
+	acc := Acceleration(make([][3]float64, 6))
 
 	tree.Nodes = []Node{{Start: 0, End: 3, Center: [3]float64{0, 0, 1}},
 		{Start: 3, End: 6, Center: [3]float64{0, 1, 1}}}
-	tree.eps2 = 0.0
+	tree.eps2 = 1e-9
 
 	for i := range tests {
 
@@ -51,11 +51,11 @@ func TestAccelerationPrimitives(t *testing.T) {
 
 		switch i {
 		case 0:
-			tree.Pairwise(0, acc)
+			acc.TwoSidedLeaf(tree, 0)
 		case 1:
-			tree.OneSided(0, 1, acc)
+			acc.OneSidedLeaf(tree, 0, 1)
 		case 2:
-			tree.Monopole(0, 1, acc)
+			acc.Approximate(tree, 0, 1)
 		}
 
 		flat_acc := flatten3(acc)
@@ -64,6 +64,7 @@ func TestAccelerationPrimitives(t *testing.T) {
 		if !multArrayAlmostEq(flat_acc, 1.0, flat_test, 1e-3) {
 			t.Errorf("%d.0) expected acc = 1*%.4f, but acc = %.4f.",
 				i, test.acc, acc)
+			panic("")
 		}
 	}
 }
@@ -89,8 +90,8 @@ func TestAccelerationInfiniteRecursion(t *testing.T) {
 
 	tree := NewTree(x)
 
-	acc := make(Acceleration, len(x))
-	tree.Quantity(1.0, acc)
+	acc := Acceleration(make([][3]float64, len(x)))
+	tree.Evaluate(1.0, acc)
 }
 
 func TestAccelerationPlummer(t *testing.T) {
@@ -99,8 +100,8 @@ func TestAccelerationPlummer(t *testing.T) {
 	x := readPointFile(filename)
 
 	tree := NewTree(x)
-	acc := make(Acceleration, len(x))
-	tree.Quantity(0.0, acc)
+	acc := Acceleration(make([][3]float64, len(x)))
+	tree.Evaluate(0.0, acc)
 
 	// Pick a point.
 	// Get acceleration at that point.

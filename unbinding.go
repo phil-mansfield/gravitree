@@ -57,7 +57,7 @@ func bindingEnergy(
 
 	x0 := make([][3]float64, n0)
 	v0 := make([][3]float64, n0)
-	E0 := make(Potential, n0)
+	E0 := make([]float64, n0)
 
 	j := 0
 	for i := range x {
@@ -68,7 +68,7 @@ func bindingEnergy(
 	}
 
 	tree := NewTree(x0)
-	tree.Quantity(eps, E0)
+	tree.Evaluate(eps, Potential(E0))
 
 	j = 0
 	nOk := 0
@@ -90,9 +90,9 @@ func bindingEnergy(
 	}
 }
 
-func PotentialEnergy(x [][3]float64, mp, eps float64, E Potential) {
+func PotentialEnergy(x [][3]float64, mp, eps float64, E []float64) {
 	tree := NewTree(x)
-	tree.Quantity(eps, E)
+	tree.Evaluate(eps, Potential(E))
 
 	for i := range E {
 		E[i] *= mp * 4.301e-6

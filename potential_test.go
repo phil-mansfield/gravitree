@@ -18,8 +18,7 @@ func TestPotentialPrimitives(t *testing.T) {
 		{0, 1, 1}, {0, 1, 0}, {0, 1, 2}}
 	tree.Index = []int{0, 2, 1, 4, 3, 5}
 
-	phi := make(Potential, 6)
-	// phi := make([]float64, 6)
+	phi := Potential(make([]float64, 6))
 
 	tree.Nodes = []Node{{Start: 0, End: 3, Center: [3]float64{0, 0, 1}},
 		{Start: 3, End: 6, Center: [3]float64{0, 1, 1}}}
@@ -34,11 +33,11 @@ func TestPotentialPrimitives(t *testing.T) {
 
 		switch i {
 		case 0:
-			tree.Pairwise(0, phi)
+			phi.TwoSidedLeaf(tree, 0)
 		case 1:
-			tree.OneSided(0, 1, phi)
+			phi.OneSidedLeaf(tree, 0, 1)
 		case 2:
-			tree.Monopole(0, 1, phi)
+			phi.Approximate(tree, 0, 1)
 		}
 
 		if !multArrayAlmostEq(phi, 1.0, test.phi, 1e-3) {
@@ -46,13 +45,15 @@ func TestPotentialPrimitives(t *testing.T) {
 				i, test.phi, phi)
 		}
 
+		// This ensures that potentials increment with subsequent calls
+
 		switch i {
 		case 0:
-			tree.Pairwise(0, phi)
+			phi.TwoSidedLeaf(tree, 0)
 		case 1:
-			tree.OneSided(0, 1, phi)
+			phi.OneSidedLeaf(tree, 0, 1)
 		case 2:
-			tree.Monopole(0, 1, phi)
+			phi.Approximate(tree, 0, 1)
 		}
 
 		if !multArrayAlmostEq(phi, 2.0, test.phi, 1e-3) {
@@ -83,7 +84,7 @@ func TestPotentialInfiniteRecursion(t *testing.T) {
 	}
 
 	tree := NewTree(x)
-	phi := make(Potential, len(x))
+	phi := make([]float64, len(x))
 
-	tree.Quantity(1.0, phi)
+	tree.Evaluate(1.0, Potential(phi))
 }

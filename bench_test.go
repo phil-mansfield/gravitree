@@ -37,44 +37,8 @@ func benchmarkEinastoTree(b *testing.B, n int, filename string) {
 	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
-		tree.Quantity(0.0, phi)
+		tree.Evaluate(0.0, phi)
 	}
-}
-
-func benchmarkEinastoOldPotential(b *testing.B, n int, filename string) {
-	x := readPointFile(filename)
-
-	tree := NewTree(x)
-	phi := make([]float64, len(x))
-
-	b.SetBytes(int64(12 * n))
-	b.ResetTimer()
-
-	for i := 0; i < b.N; i++ {
-		tree.oldPotential(0.0, phi)
-	}
-}
-
-func BenchmarkEinastoOldPotential_1e2(b *testing.B) {
-	benchmarkEinastoOldPotential(b, int(1e2), "test_files/einasto_n=2_a=18.dat")
-}
-func BenchmarkEinastoOldPotential_3e2(b *testing.B) {
-	benchmarkEinastoOldPotential(b, int(3e2), "test_files/einasto_n=2.5_a=18.dat")
-}
-func BenchmarkEinastoOldPotential_1e3(b *testing.B) {
-	benchmarkEinastoOldPotential(b, int(1e3), "test_files/einasto_n=3_a=18.dat")
-}
-func BenchmarkEinastoOldPotential_3e3(b *testing.B) {
-	benchmarkEinastoOldPotential(b, int(3e3), "test_files/einasto_n=3.5_a=18.dat")
-}
-func BenchmarkEinastoOldPotential_1e4(b *testing.B) {
-	benchmarkEinastoOldPotential(b, int(1e4), "test_files/einasto_n=4_a=18.dat")
-}
-func BenchmarkEinastoOldPotential_3e4(b *testing.B) {
-	benchmarkEinastoOldPotential(b, int(3e4), "test_files/einasto_n=4.5_a=18.dat")
-}
-func BenchmarkEinastoOldPotential_1e5(b *testing.B) {
-	benchmarkEinastoOldPotential(b, int(1e5), "test_files/einasto_n=5_a=18.dat")
 }
 
 func BenchmarkEinastoTree_1e2(b *testing.B) {
