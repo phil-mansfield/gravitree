@@ -8,6 +8,8 @@ import (
 // OpeningCriteria represents a type of criteria used to decide whether a
 // monopole approximation can be used for given tree node.
 type OpeningCriteria int
+// ApproximationOrder is the order of the appoximaiton used for unopened tree cells/
+type ApproximationOrder int
 
 const (
 	// The PKDGRAV3 opening criteria (Potter, Stadel, & Teyssier 2017; S 3.1).
@@ -24,6 +26,11 @@ const (
 	BarnesHut
 )
 
+const (
+	Monopole ApproximationOrder = iota
+	Quadrupole
+)
+
 // Tree is a gravitational KD-tree which can be used to compute gravitaional
 // forces and potentials.
 type Tree struct {
@@ -36,6 +43,10 @@ type Tree struct {
 	LeafSize int // The maximum number of points that can be stored in a leaf.
 	Criteria OpeningCriteria // Flag indicating the opening criteria.
 	Theta float64 // The critical opening angle of the chosen criteria.
+	Order ApproximationOrder // Flag indicating approximation order
+
+	P [][3]float64 // Diagonal matrix used in quadrupole approximation
+	Q [][3][3]float64 // Matrix used in quadrupole approximation
 
 	eps2 float64
 }
@@ -54,6 +65,7 @@ type TreeOptions struct {
 	LeafSize int // Default: 16
 	Criteria OpeningCriteria // Default: PKDGRAV
 	Theta float64 // Default: 0.7
+	Order ApproximationOrder // Default: Monopole
 
 	// Buffers which can be reused between trees to reduce allocation. They
 	// will be resized if the provided buffers are too small, but this can be
@@ -64,6 +76,8 @@ type TreeOptions struct {
 	PointsBuffer [][3]float64
 	IndexBuffer []int
 	NodeBuffer []Node
+	PBuffer [][3]float64
+	QBuffer [][3][3]float64
 }
 
 // Reuse creates a Tree which reuses the internal buffers and configuration
@@ -77,6 +91,8 @@ func (t *Tree) Reuse() TreeOptions {
 		PointsBuffer: t.Points[:0],
 		IndexBuffer: t.Index[:0],
 		NodeBuffer: t.Nodes[:0],
+		PBuffer: t.P[:0],
+		QBuffer: t.Q[:0],
 	}
 }
 
@@ -95,9 +111,14 @@ func NewTree(x [][3]float64, opt ...TreeOptions) *Tree {
 	if opt[0].Theta == 0.0 {
 		opt[0].Theta = 0.7
 	}
+	if opt[0].Order == 0 {
+		opt[0].Order = Monopole
+	}
 	
 	t := &Tree{ Nodes: []Node{ }, LeafSize: opt[0].LeafSize,
-		Theta: opt[0].Theta, Criteria: opt[0].Criteria}
+		Theta: opt[0].Theta, Criteria: opt[0].Criteria,
+		Order: opt[0].Order,
+	}
 
 	// Initialize points and indices.
 	n := len(x)
@@ -117,6 +138,15 @@ func NewTree(x [][3]float64, opt ...TreeOptions) *Tree {
 	t.addNode(0, 0, len(x))
 	t.Root = &t.Nodes[0]
 	
+	// Compute higher order moments
+	switch t.Order {
+		t.P = append(opt[0].PBuffer, make([][3]float64, len(t.Nodes))...)
+		t.Q = append(opt[0].QBuffer, make([][3][3]float64, len(t.Nodes))...)
+		for i := range t.Nodes {
+			t.computeQuadrupoleMoment(i)
+		}
+	}
+
 	return t
 }
 
@@ -332,4 +362,21 @@ func partition(x [][3]float64, idx []int, dim int, pivot float64) int {
 		r--
 		if l == left { return left }
 	}
+}
+
+
+func (t *Tree) computeQuadrupoleMoment(i int) {
+	// TODO: Write a funciton which computes P & Q for node i. As far as I know,
+	// there's no divide-and-conquer style agorithm for computing this from sub-
+	// nodes, so you can just compute it node-by-node.
+	panic("NYI")
+}
+
+func (t *Tree) ShiftNodes(x [][3]float64) {
+	// TODO: write a function which "shifts" nodes /without reconstructing the tree/
+	// in response to position updates. This will mean updating the positions of all the
+	// particles stored in the tree, recomputing centers of mass, recomputing
+	// node "radii", and recomputing P and Q if the tree is using a quadrupole
+	// approximation.
+	panic("NYI")
 }

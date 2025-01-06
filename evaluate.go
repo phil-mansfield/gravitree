@@ -51,3 +51,19 @@ func (t *Tree) walkNodeEvaluate(i, j int, q Quantity) {
 		t.walkNodeEvaluate(i, target.Right, q)
 	}
 }
+
+func (t1 *Tree) EvaluateAt(t2 *Tree, eps float64, q Quantity) {
+	// TODO: Write an alternate version of Evaluate which takes in a set of test
+	// points and updates the Quantity accordingly. For now, let's have the other points
+	// passed to us as a Tree. We'll want to do new benchmarking of how much refinement
+	// this new tree should have. My guess is that for small point sets, we'll want to
+	// set the minimum leaf size to 1.
+	//
+	// This new funciton will only need to call OneSidedLeaf and Approximate. Those
+	// two methods of the Quantity interface will need to be changed so they take in
+	// a separte tree for index i and and for index j (and then the vanilla
+	// walkNodeEvaluate will need to be updated so that the same tree is passed twice.) 
+	//
+	// (It's totally possible that we want this to work without the secondary tree.)
+	panic("NYI")
+}
