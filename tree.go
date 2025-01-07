@@ -140,6 +140,7 @@ func NewTree(x [][3]float64, opt ...TreeOptions) *Tree {
 	
 	// Compute higher order moments
 	switch t.Order {
+	case Quadrupole:
 		t.P = append(opt[0].PBuffer, make([][3]float64, len(t.Nodes))...)
 		t.Q = append(opt[0].QBuffer, make([][3][3]float64, len(t.Nodes))...)
 		for i := range t.Nodes {
