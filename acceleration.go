@@ -6,7 +6,8 @@ import (
 )
 
 type Acceleration [][3]float64
-var _ Quantity = Acceleration{ }
+
+var _ Quantity = Acceleration{}
 
 func (acc Acceleration) Len() int { return len(acc) }
 
@@ -14,7 +15,7 @@ func (acc Acceleration) TwoSidedLeaf(t *Tree, i int) {
 	node := &t.Nodes[i]
 	for i := node.Start; i < node.End; i++ {
 		xi, idxi := &t.Points[i], t.Index[i]
-		for j := i+1; j < node.End; j++ {
+		for j := i + 1; j < node.End; j++ {
 			xj, idxj := &t.Points[j], t.Index[j]
 
 			dx := []float64{0, 0, 0}
@@ -33,8 +34,7 @@ func (acc Acceleration) TwoSidedLeaf(t *Tree, i int) {
 	}
 }
 
-
-func (acc Acceleration) Approximate(t *Tree, i, j int) {
+func (acc Acceleration) Approximate(t, t2 *Tree, i, j int) {
 	switch t.Order {
 	case Monopole:
 		nodei, nodej := &t.Nodes[i], &t.Nodes[j]
@@ -53,7 +53,7 @@ func (acc Acceleration) Approximate(t *Tree, i, j int) {
 			dr2 += t.eps2
 
 			for k := 0; k < 3; k++ {
-				acc[idxi][k] -= massj*dx[k] / (dr2 * math.Sqrt(dr2))
+				acc[idxi][k] -= massj * dx[k] / (dr2 * math.Sqrt(dr2))
 			}
 		}
 	case Quadrupole:
@@ -64,7 +64,7 @@ func (acc Acceleration) Approximate(t *Tree, i, j int) {
 	}
 }
 
-func (acc Acceleration) OneSidedLeaf(t *Tree, i, j int) {
+func (acc Acceleration) OneSidedLeaf(t, t2 *Tree, i, j int) {
 	nodei, nodej := &t.Nodes[i], &t.Nodes[j]
 
 	for i := nodei.Start; i < nodei.End; i++ {
@@ -88,10 +88,10 @@ func (acc Acceleration) OneSidedLeaf(t *Tree, i, j int) {
 }
 
 func BruteForceAcceleration(eps float64, x [][3]float64, acc [][3]float64) {
-	eps2 := eps*eps
+	eps2 := eps * eps
 	for i := range x {
 		xi := x[i]
-		for j := i+1; j < len(x); j++ {
+		for j := i + 1; j < len(x); j++ {
 			xj := x[j]
 
 			dx := []float64{0, 0, 0}

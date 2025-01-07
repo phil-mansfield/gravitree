@@ -4,9 +4,9 @@ import "fmt"
 
 type Quantity interface {
 	Len() int
-	TwoSidedLeaf(t *Tree, i int) // Evaluate quantity within i
-	Approximate(t *Tree, i, j int) // Approximate quantity of j at i
-	OneSidedLeaf(t *Tree, i, j int) // Evaluate quantity of j at i
+	TwoSidedLeaf(t *Tree, i int)        // Evaluate quantity within i
+	Approximate(t, t2 *Tree, i, j int)  // Approximate quantity of j at i
+	OneSidedLeaf(t, t2 *Tree, i, j int) // Evaluate quantity of j at i
 }
 
 func (t *Tree) useApproximation(i, j int) bool {
@@ -43,12 +43,27 @@ func (t *Tree) walkNodeEvaluate(i, j int, q Quantity) {
 	if i == j {
 		q.TwoSidedLeaf(t, i)
 	} else if t.useApproximation(i, j) {
-		q.Approximate(t, i, j)
+		q.Approximate(t, t, i, j) // passing in the same tree
 	} else if target.Left == -1 {
-		q.OneSidedLeaf(t, i, j)
+		q.OneSidedLeaf(t, t, i, j) // passing in the same tree
 	} else {
 		t.walkNodeEvaluate(i, target.Left, q)
 		t.walkNodeEvaluate(i, target.Right, q)
+	}
+}
+
+// Same function as walkNodeEvaluate except it calculates quantities
+// for a secondary tree.
+func (t1 *Tree) walkNodeEvaluateAt(t2 *Tree, i, j int, q Quantity) {
+	target := &t2.Nodes[j]
+
+	if t1.useApproximation(i, j) {
+		q.Approximate(t1, t2, i, j) // passing in the secondary tree
+	} else if target.Left == -1 {
+		q.OneSidedLeaf(t1, t2, i, j)
+	} else {
+		t1.walkNodeEvaluateAt(t2, i, target.Left, q)
+		t1.walkNodeEvaluateAt(t2, i, target.Right, q)
 	}
 }
 
@@ -62,8 +77,22 @@ func (t1 *Tree) EvaluateAt(t2 *Tree, eps float64, q Quantity) {
 	// This new funciton will only need to call OneSidedLeaf and Approximate. Those
 	// two methods of the Quantity interface will need to be changed so they take in
 	// a separte tree for index i and and for index j (and then the vanilla
-	// walkNodeEvaluate will need to be updated so that the same tree is passed twice.) 
+	// walkNodeEvaluate will need to be updated so that the same tree is passed twice.)
 	//
 	// (It's totally possible that we want this to work without the secondary tree.)
-	panic("NYI")
+	// panic("NYI")
+
+	if q.Len() != len(t2.Points) {
+		panic(fmt.Sprintf("Tree has %d points, but len(q) = %d",
+			len(t2.Nodes), q.Len()))
+	}
+
+	t1.eps2 = eps * eps
+
+	// loop over the t2 nodes
+	for i := range t2.Nodes {
+		if t2.Nodes[i].Left == -1 {
+			t1.walkNodeEvaluateAt(t2, i, 0, q)
+		}
+	}
 }
