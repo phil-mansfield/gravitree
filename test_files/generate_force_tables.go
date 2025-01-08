@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/phil-mansfield/symtable"
 	"github.com/phil-mansfield/gravitree"
+	"github.com/phil-mansfield/symtable"
 )
 
-func readPointFile(filename string) [][3]float64{
+func readPointFile(filename string) [][3]float64 {
 
 	t := symtable.TextFile(filename)
 	cols := t.ReadFloat64s([]int{0, 1, 2}) // column indices
@@ -31,7 +31,9 @@ func readPointFile(filename string) [][3]float64{
 
 func writeAcceleration(filename string, acc [][3]float64) {
 	f, err := os.Create(filename)
-	if err != nil { panic(err.Error()) }
+	if err != nil {
+		panic(err.Error())
+	}
 	for i := range acc {
 		fmt.Fprintf(f, "%.10g %.10g %.10g\n", acc[i][0], acc[i][1], acc[i][2])
 	}
@@ -43,7 +45,7 @@ func main() {
 		gravitree.BarnesHut, gravitree.PKDGRAV3,
 		gravitree.SalmonWarren,
 	}
-	nStrs := []string{ "4" }
+	nStrs := []string{"4"}
 
 	for in := range nStrs {
 		filename := fmt.Sprintf("einasto_n=%s_a=18.dat", nStrs[in])
@@ -52,12 +54,14 @@ func main() {
 
 		for ic := range criterias {
 			for it := range thetas {
-				for i := range acc { acc[i] = [3]float64{ } }
+				for i := range acc {
+					acc[i] = [3]float64{}
+				}
 
 				if it == 0 {
 					gravitree.BruteForceAcceleration(0.0, x, acc)
 				} else {
-					opt := gravitree.TreeOptions{ }
+					opt := gravitree.TreeOptions{}
 					opt.Criteria = criterias[ic]
 					opt.Theta = thetas[it]
 

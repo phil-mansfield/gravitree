@@ -5,10 +5,9 @@ import (
 	"os"
 
 	"github.com/phil-mansfield/symtable"
-	"github.com/phil-mansfield/gravitree"
 )
 
-func readPointFile(filename string) [][3]float64{
+func readPointFile(filename string) [][3]float64 {
 
 	t := symtable.TextFile(filename)
 	cols := t.ReadFloat64s([]int{0, 1, 2}) // column indices
@@ -33,7 +32,9 @@ func writeBenchmarks(filename, comment string, times [][]float64) {
 	// (The comment should be a a string with '#' in front of each line which explains
 	// the file contents.)
 	f, err := os.Create(filename)
-	if err != nil { panic(err.Error()) }
+	if err != nil {
+		panic(err.Error())
+	}
 	fmt.Fprintf(f, "%s\n", comment)
 	for i := range times {
 		for j := range times[i] {
@@ -61,4 +62,40 @@ func main() {
 	// win and at very large counts the opposite should be true. We know that how much
 	// speed up we get from the tree should degrade as the opening angle decreases.
 	panic("NYI")
+
+	// metaparameters
+	// thetas := []float64{-1, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1.0}
+	// criterias := []gravitree.OpeningCriteria{
+	// 	gravitree.BarnesHut, gravitree.PKDGRAV3,
+	// 	gravitree.SalmonWarren,
+	// }
+	// nStrs := []string{"4"}
+
+	// for in := range nStrs {
+	// 	filename := fmt.Sprintf("einasto_n=%s_a=18.dat", nStrs[in])
+	// 	x := readPointFile(filename)
+	// 	acc := gravitree.Acceleration(make([][3]float64, len(x)))
+
+	// 	for ic := range criterias {
+	// 		for it := range thetas {
+	// 			for i := range acc {
+	// 				acc[i] = [3]float64{}
+	// 			}
+
+	// 			if it == 0 {
+	// 				gravitree.BruteForceAcceleration(0.0, x, acc)
+	// 			} else {
+	// 				opt := gravitree.TreeOptions{}
+	// 				opt.Criteria = criterias[ic]
+	// 				opt.Theta = thetas[it]
+
+	// 				tree := gravitree.NewTree(x, opt)
+	// 				tree.Evaluate(0.0, acc)
+	// 			}
+	// 			filename = fmt.Sprintf("force_table_n=%s_ic=%d_it=%d.dat",
+	// 				nStrs[in], ic, it)
+	// 			writeAcceleration(filename, acc)
+	// 		}
+	// 	}
+	// }
 }

@@ -9,8 +9,8 @@ type Quantity interface {
 	OneSidedLeaf(t, t2 *Tree, i, j int) // Evaluate quantity of j at i
 }
 
-func (t *Tree) useApproximation(i, j int) bool {
-	nodei, nodej := &t.Nodes[i], &t.Nodes[j]
+func (t1 *Tree) useApproximation(t2 *Tree, i, j int) bool {
+	nodei, nodej := &t2.Nodes[i], &t1.Nodes[j]
 
 	xi, xj := &nodei.Center, &nodej.Center
 	dx := xj[0] - xi[0]
@@ -18,7 +18,7 @@ func (t *Tree) useApproximation(i, j int) bool {
 	dz := xj[2] - xi[2]
 	dx2 := dx*dx + dy*dy + dz*dz
 
-	return dx2 > nodei.RMax2+nodej.ROpen2 || dx2 < t.eps2
+	return dx2 > nodei.RMax2+nodej.ROpen2 || dx2 < t2.eps2
 }
 
 func (t *Tree) Evaluate(eps float64, q Quantity) {
@@ -42,7 +42,7 @@ func (t *Tree) walkNodeEvaluate(i, j int, q Quantity) {
 
 	if i == j {
 		q.TwoSidedLeaf(t, i)
-	} else if t.useApproximation(i, j) {
+	} else if t.useApproximation(t, i, j) {
 		q.Approximate(t, t, i, j) // passing in the same tree
 	} else if target.Left == -1 {
 		q.OneSidedLeaf(t, t, i, j) // passing in the same tree
@@ -55,9 +55,9 @@ func (t *Tree) walkNodeEvaluate(i, j int, q Quantity) {
 // Same function as walkNodeEvaluate except it calculates quantities
 // for a secondary tree.
 func (t1 *Tree) walkNodeEvaluateAt(t2 *Tree, i, j int, q Quantity) {
-	target := &t2.Nodes[j]
+	target := &t1.Nodes[j]
 
-	if t1.useApproximation(i, j) {
+	if t1.useApproximation(t2, i, j) {
 		q.Approximate(t1, t2, i, j) // passing in the secondary tree
 	} else if target.Left == -1 {
 		q.OneSidedLeaf(t1, t2, i, j)
@@ -81,6 +81,10 @@ func (t1 *Tree) EvaluateAt(t2 *Tree, eps float64, q Quantity) {
 	//
 	// (It's totally possible that we want this to work without the secondary tree.)
 	// panic("NYI")
+
+	if t2.LeafSize != 1 {
+		panic("Only works if second tree has a leaf size of 1.")
+	}
 
 	if q.Len() != len(t2.Points) {
 		panic(fmt.Sprintf("Tree has %d points, but len(q) = %d",

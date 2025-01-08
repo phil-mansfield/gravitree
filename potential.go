@@ -39,7 +39,10 @@ func (phi Potential) Approximate(t1, t2 *Tree, i, j int) {
 	case Monopole:
 		// Loops over the t2 nodes, calculating the
 		// contributions from the t1 nodes.
-		nodei, nodej := &t2.Nodes[i], &t1.Nodes[j]
+		// nodei, nodej := &t2.Nodes[i], &t1.Nodes[j]
+		nodei := &t2.Nodes[i]
+		nodej := &t1.Nodes[j]
+
 		xj := &nodej.Center
 		massj := float64(nodej.End - nodej.Start)
 
@@ -88,6 +91,21 @@ func BruteForcePotential(eps float64, x [][3]float64, phi []float64) {
 
 			phiij := 1.0 / math.Sqrt(dx2+eps2)
 			phi[i] -= phiij
+			phi[j] -= phiij
+		}
+	}
+}
+
+func BruteForcePotentialAt(eps float64, x1, x2 [][3]float64, phi []float64) {
+	eps2 := eps * eps
+	for i := range x1 {
+		for j := range x2 {
+			dx := x2[j][0] - x1[i][0]
+			dy := x2[j][1] - x1[i][1]
+			dz := x2[j][2] - x1[i][2]
+			dx2 := dx*dx + dy*dy + dz*dz
+
+			phiij := 1.0 / math.Sqrt(dx2+eps2)
 			phi[j] -= phiij
 		}
 	}
