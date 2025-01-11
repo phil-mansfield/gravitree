@@ -32,28 +32,28 @@ func (phi Potential) TwoSidedLeaf(t *Tree, i int) {
 	}
 }
 
-func (phi Potential) Approximate(t1, t2 *Tree, i, j int) {
+func (phi Potential) Approximate(t1, t2 *Tree, i2, i1 int) {
 	// writes the approximated potential for nodes in
 	// t2 from nodes in t1
 	switch t2.Order {
 	case Monopole:
 		// Loops over the t2 nodes, calculating the
 		// contributions from the t1 nodes.
-		// nodei, nodej := &t2.Nodes[i], &t1.Nodes[j]
-		nodei := &t2.Nodes[i]
-		nodej := &t1.Nodes[j]
+		// node_i2, nodej := &t2.Nodes[i], &t1.Nodes[j]
+		node_i2 := &t2.Nodes[i2]
+		node_i1 := &t1.Nodes[i1]
 
-		xj := &nodej.Center
-		massj := float64(nodej.End - nodej.Start)
+		x_i1 := &node_i1.Center
+		mass_i1 := float64(node_i1.End - node_i1.Start)
 
-		for i := nodei.Start; i < nodei.End; i++ {
-			xi, idxi := &t2.Points[i], t2.Index[i]
+		for i2 := node_i2.Start; i2 < node_i2.End; i2++ {
+			x_i2, idx_i2 := &t2.Points[i2], t2.Index[i2]
 
-			dx := xj[0] - xi[0]
-			dy := xj[1] - xi[1]
-			dz := xj[2] - xi[2]
+			dx := x_i1[0] - x_i2[0]
+			dy := x_i1[1] - x_i2[1]
+			dz := x_i1[2] - x_i2[2]
 			dx2 := dx*dx + dy*dy + dz*dz
-			phi[idxi] += pointPotential(dx2, t2.eps2) * massj
+			phi[idx_i2] += pointPotential(dx2, t2.eps2) * mass_i1
 		}
 	case Quadrupole:
 		// TODO: Implement (Plummer) quadrupole appoximation of potential
@@ -63,19 +63,19 @@ func (phi Potential) Approximate(t1, t2 *Tree, i, j int) {
 	}
 }
 
-func (phi Potential) OneSidedLeaf(t1, t2 *Tree, i, j int) {
-	nodei, nodej := &t2.Nodes[i], &t1.Nodes[j]
+func (phi Potential) OneSidedLeaf(t1, t2 *Tree, i2, i1 int) {
+	node_i2, node_i1 := &t2.Nodes[i2], &t1.Nodes[i1]
 
-	for i := nodei.Start; i < nodei.End; i++ {
-		xi, idxi := &t2.Points[i], t2.Index[i]
-		for j := nodej.Start; j < nodej.End; j++ {
-			xj := &t1.Points[j]
+	for i2 := node_i2.Start; i2 < node_i2.End; i2++ {
+		x_i2, idx_i2 := &t2.Points[i2], t2.Index[i2]
+		for i1 := node_i1.Start; i1 < node_i1.End; i1++ {
+			x_i1 := &t1.Points[i1]
 
-			dx := xj[0] - xi[0]
-			dy := xj[1] - xi[1]
-			dz := xj[2] - xi[2]
+			dx := x_i1[0] - x_i2[0]
+			dy := x_i1[1] - x_i2[1]
+			dz := x_i1[2] - x_i2[2]
 			dx2 := dx*dx + dy*dy + dz*dz
-			phi[idxi] += pointPotential(dx2, t2.eps2)
+			phi[idx_i2] += pointPotential(dx2, t2.eps2)
 		}
 	}
 }
