@@ -53,9 +53,9 @@ func TestAccelerationPrimitives(t *testing.T) {
 		case 0:
 			acc.TwoSidedLeaf(tree, 0)
 		case 1:
-			acc.OneSidedLeaf(tree, tree, 0, 1)
+			acc.OneSidedLeaf(tree, tree, 1, 0)
 		case 2:
-			acc.Approximate(tree, tree, 0, 1)
+			acc.Approximate(tree, tree, 1, 0)
 		}
 
 		flat_acc := flatten3(acc)
