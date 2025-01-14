@@ -34,7 +34,7 @@ func (acc Acceleration) TwoSidedLeaf(t *Tree, i int) {
 	}
 }
 
-func (acc Acceleration) Approximate(t1, t2 *Tree, i2, i1 int) {
+func (acc Acceleration) Approximate(t1, t2 *Tree, i1, i2 int) {
 	switch t2.Order {
 	case Monopole:
 		node_i2, node_i1 := &t2.Nodes[i2], &t1.Nodes[i1]
@@ -50,7 +50,7 @@ func (acc Acceleration) Approximate(t1, t2 *Tree, i2, i1 int) {
 				dx[k] = x_i2[k] - x_i1[k]
 				dr2 += dx[k] * dx[k]
 			}
-			dr2 += t2.eps2
+			dr2 += t1.eps2
 
 			for k := 0; k < 3; k++ {
 				acc[idx_i2][k] -= mass_i1 * dx[k] / (dr2 * math.Sqrt(dr2))
@@ -64,7 +64,7 @@ func (acc Acceleration) Approximate(t1, t2 *Tree, i2, i1 int) {
 	}
 }
 
-func (acc Acceleration) OneSidedLeaf(t1, t2 *Tree, i2, i1 int) {
+func (acc Acceleration) OneSidedLeaf(t1, t2 *Tree, i1, i2 int) {
 	node_i2, node_i1 := &t2.Nodes[i2], &t1.Nodes[i1]
 
 	for i2 := node_i2.Start; i2 < node_i2.End; i2++ {
@@ -78,7 +78,7 @@ func (acc Acceleration) OneSidedLeaf(t1, t2 *Tree, i2, i1 int) {
 				dx[k] = x_i2[k] - x_i1[k]
 				dr2 += dx[k] * dx[k]
 			}
-			dr2 += t2.eps2
+			dr2 += t1.eps2
 
 			for k := 0; k < 3; k++ {
 				acc[idx_i2][k] -= dx[k] / (dr2 * math.Sqrt(dr2))
