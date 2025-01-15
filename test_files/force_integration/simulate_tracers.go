@@ -7,9 +7,21 @@ import (
 	"math/rand/v2"
 	"os"
 
+	"path/filepath"
+
 	"github.com/phil-mansfield/gravitree"
 	"github.com/phil-mansfield/symtable"
 )
+
+type SimulationOptions struct {
+	steps      int
+	dt         float64
+	save_every int
+	eps        float64
+	brute      bool
+	save_dir   string
+	snap_fn    string
+}
 
 func readPointFile(filename string) [][3]float64 {
 
@@ -32,6 +44,16 @@ func readPointFile(filename string) [][3]float64 {
 	return result
 }
 
+func rescalePoints(x [][3]float64, a float64) [][3]float64 {
+	res := make([][3]float64, len(x))
+	for i := range x {
+		for k := 0; k < 3; k++ {
+			res[i][k] = a * x[i][k]
+		}
+	}
+	return res
+}
+
 func writeOrbit(filename string, x [][3]float64, v [][3]float64, ok []bool) {
 	f, err := os.Create(filename)
 	if err != nil {
@@ -42,6 +64,17 @@ func writeOrbit(filename string, x [][3]float64, v [][3]float64, ok []bool) {
 			fmt.Fprintf(f, "%.10g %.10g %.10g %.10g %.10g %.10g \n",
 				x[i][0], x[i][1], x[i][2], v[i][0], v[i][1], v[i][2])
 		}
+	}
+}
+
+func writeQuantity(filename string, q []float64) {
+	f, err := os.Create(filename)
+	if err != nil {
+		panic(err.Error())
+	}
+	for i := 0; i < len(q); i++ {
+		fmt.Fprintf(f, "%.10g \n", q[i])
+
 	}
 }
 
@@ -76,11 +109,14 @@ func LeapfrogStep(
 	dt float64,
 	ok []bool,
 	w_tree *gravitree.ArrayTree,
-	w_acc *gravitree.Acceleration,
 	eps float64,
 ) {
 
+	w_acc := gravitree.Acceleration(make([][3]float64, len(pos)))
+
 	// calculate current acceleration
+	w_tree.Tree.Points = pos
+	w_tree.Update()
 	tree.EvaluateAt(&w_tree.Tree, eps, w_acc)
 
 	// perform half kick
@@ -88,7 +124,7 @@ func LeapfrogStep(
 
 		if ok[i] {
 			for j := range 3 {
-				vel[i][j] += (dt / 2.0) * (*w_acc)[i][j]
+				vel[i][j] += (dt / 2.0) * (w_acc)[i][j]
 			}
 		}
 	}
@@ -112,7 +148,7 @@ func LeapfrogStep(
 	for i := range pos {
 		if ok[i] {
 			for j := range 3 {
-				vel[i][j] += (dt / 2.0) * (*w_acc)[i][j]
+				vel[i][j] += (dt / 2.0) * (w_acc)[i][j]
 			}
 		}
 	}
@@ -188,13 +224,13 @@ func getCircularVelocity(x [][3]float64, r float64) float64 {
 	return math.Sqrt(1. * float64(n_part) / r)
 }
 
-// func vecNorm(x [3]float64) float64 {
-// 	r := 0.0
-// 	for i := 0; i < 3; i++ {
-// 		r += x[i] * x[i]
-// 	}
-// 	return math.Sqrt(r)
-// }
+func vecNorm(x [3]float64) float64 {
+	r := 0.0
+	for i := 0; i < 3; i++ {
+		r += x[i] * x[i]
+	}
+	return math.Sqrt(r)
+}
 
 func stream(
 	x0 [3]float64,
@@ -246,7 +282,6 @@ func stream(
 	pos[0] = x0
 	vel[0] = v0
 
-	w_acc := gravitree.Acceleration(make([][3]float64, len(pos)))
 	w_tree := gravitree.NewArrayTree(pos)
 
 	for i := range steps {
@@ -271,12 +306,108 @@ func stream(
 		}
 
 		if brute_force {
-			particle_fn := "../einasto_n=3_a=18.dat"
-			halo_x := readPointFile(particle_fn)
-			LeapfrogStepBF(pos, vel, halo_x, dt, ok, eps)
+			LeapfrogStepBF(pos, vel, ext_pos, dt, ok, eps)
 
 		} else {
-			LeapfrogStep(pos, vel, tree, dt, ok, w_tree, &w_acc, eps)
+			LeapfrogStep(pos, vel, tree, dt, ok, w_tree, eps)
+		}
+
+		t += dt
+	}
+
+}
+
+func calculateEnergy(
+	pos [][3]float64,
+	vel [][3]float64,
+	halo_pos [][3]float64,
+	ok []bool,
+	eps float64,
+	brute bool,
+) []float64 {
+
+	res := make([]float64, len(pos))
+	pot := gravitree.Potential(make([]float64, len(pos)))
+	// potential
+	if !brute {
+		tree := gravitree.NewTree(halo_pos)
+		w_tree := gravitree.NewArrayTree(pos)
+		w_tree.SetEvaluateFlag(ok)
+		w_tree.Update()
+		tree.EvaluateAt(&w_tree.Tree, eps, pot)
+	} else {
+		gravitree.BruteForcePotentialAt(eps, halo_pos, pos, pot)
+	}
+
+	for i := range pos {
+		// kinetic
+		if ok[i] {
+			res[i] += vecNorm(vel[i])
+			res[i] *= res[i] / 2.
+			res[i] += pot[i]
+		}
+	}
+
+	return res
+}
+
+func single_particle(
+	steps int,
+	dt float64,
+	snap_cadence int,
+	brute_force bool,
+	eps float64,
+) {
+	orbit_fn := "snapshots/single_t_%d.dat"
+	energy_fn := "snapshots/single_e_%d.dat"
+
+	if brute_force {
+		orbit_fn = "snapshots/single_bf_t_%d.dat"
+		energy_fn = "snapshots/single_bf_e_%d.dat"
+		fmt.Printf("Calculating using brute force. \n")
+	}
+
+	pos := make([][3]float64, 1)
+	vel := make([][3]float64, 1)
+	ok := make([]bool, 1)
+
+	ext_pos := [][3]float64{
+		{0., 0., 0.},
+	}
+
+	tree := gravitree.NewTree(ext_pos)
+	// fix this
+
+	t := 0.0
+
+	ok[0] = true
+	pos[0] = [3]float64{.1, 0, 0}
+	vel[0] = [3]float64{0, 1. / math.Sqrt(.1), 0}
+
+	w_tree := gravitree.NewArrayTree(pos)
+
+	for i := range steps {
+		fmt.Printf("(single) step %v; brute: %t \n", i, brute_force)
+
+		if int(t/dt)%snap_cadence == 0 {
+			writeOrbit(fmt.Sprintf(orbit_fn, i/snap_cadence), pos, vel, ok)
+			e := calculateEnergy(
+				pos,
+				vel,
+				ext_pos,
+				ok,
+				eps,
+				brute_force,
+			)
+			writeQuantity(fmt.Sprintf(energy_fn, i/snap_cadence), e)
+		}
+
+		if brute_force {
+			LeapfrogStepBF(pos, vel, ext_pos, dt, ok, eps)
+
+		} else {
+			LeapfrogStep(pos, vel, tree, dt, ok, w_tree, eps)
+
 		}
 
 		t += dt
@@ -288,17 +419,16 @@ func circ(
 	npart int,
 	r0 float64,
 	dr float64,
-	steps int,
-	dt float64,
 	ext_pos [][3]float64,
-	snap_cadence int,
-	brute_force bool,
-	eps float64,
+	opt SimulationOptions,
 ) {
-	orbit_fn := "snapshots/circ_t_%d.dat"
 
-	if brute_force {
-		orbit_fn = "snapshots/circ_bf_t_%d.dat"
+	orbit_fn := filepath.Join(opt.save_dir, "circ_t_%d.dat")
+	energy_fn := filepath.Join(opt.save_dir, "circ_e_%d.dat")
+
+	if opt.brute {
+		orbit_fn = filepath.Join(opt.save_dir, "circ_bf_t_%d.dat")  //
+		energy_fn = filepath.Join(opt.save_dir, "circ_bf_e_%d.dat") //
 		fmt.Printf("Calculating brute force... \n")
 	}
 
@@ -316,24 +446,32 @@ func circ(
 		vel[i] = [3]float64{0, getCircularVelocity(ext_pos, r0+float64(i)*dr), 0}
 	}
 
-	w_acc := gravitree.Acceleration(make([][3]float64, len(pos)))
 	w_tree := gravitree.NewArrayTree(pos)
 
-	for i := range steps {
-		fmt.Printf("(circ) step %v; brute: %t \n", i, brute_force)
+	for i := range opt.steps {
+		fmt.Printf("(circ) step %v; brute: %t \n", i, opt.brute)
 
-		if int(t/dt)%snap_cadence == 0 {
-			writeOrbit(fmt.Sprintf(orbit_fn, i/snap_cadence), pos, vel, ok)
+		if int(t/opt.dt)%opt.save_every == 0 {
+			writeOrbit(fmt.Sprintf(orbit_fn, i/opt.save_every), pos, vel, ok)
+			e := calculateEnergy(
+				pos,
+				vel,
+				ext_pos,
+				ok,
+				opt.eps,
+				opt.brute,
+			)
+			writeQuantity(fmt.Sprintf(energy_fn, i/opt.save_every), e)
 		}
 
-		if brute_force {
-			LeapfrogStepBF(pos, vel, ext_pos, dt, ok, eps)
+		if opt.brute {
+			LeapfrogStepBF(pos, vel, ext_pos, opt.dt, ok, opt.eps)
 
 		} else {
-			LeapfrogStep(pos, vel, tree, dt, ok, w_tree, &w_acc, eps)
+			LeapfrogStep(pos, vel, tree, opt.dt, ok, w_tree, opt.eps)
 		}
 
-		t += dt
+		t += opt.dt
 	}
 
 }
@@ -377,15 +515,18 @@ func main() {
 
 	method := flag.String("method", "approx", "Brute force or tree approx.")
 	gen := flag.String("gen", "stream", "generate a stream or Gaussian cloud")
+	npts := flag.String("npts", "3", "einasto profile")
 
 	flag.Parse()
 
 	// check if snapshot folder exists
 
-	_, err := os.Stat("snapshots")
+	save_dir := fmt.Sprintf("snapshots_n=%s", *npts)
+
+	_, err := os.Stat(save_dir)
 
 	if os.IsNotExist(err) {
-		err := os.MkdirAll("snapshots", os.ModePerm)
+		err := os.MkdirAll(save_dir, os.ModePerm)
 		if err != nil {
 			panic("Unable to create snapshot folder.")
 		}
@@ -399,8 +540,9 @@ func main() {
 
 	steps := int(1e6)
 	// obtain static distribution to orbit around
-	particle_fn := "../einasto_n=3_a=18.dat"
+	particle_fn := fmt.Sprintf("../einasto_n=%s_a=18.dat", *npts)
 	ext_pos := readPointFile(particle_fn)
+	ext_pos = rescalePoints(ext_pos, 1./(0.1))
 
 	dt := .0001
 
@@ -427,14 +569,30 @@ func main() {
 			eps,
 		)
 	} else if *gen == "circ" {
+
+		steps := int(5e5)
+
+		opt := SimulationOptions{
+			brute:      brute,
+			steps:      steps,
+			dt:         1e-6,
+			save_every: int(steps / 1000),
+			eps:        eps,
+			save_dir:   save_dir,
+		}
+
 		circ(
 			10,
-			30.,
-			1.,
-			int(2e6),
-			dt,
+			.5,
+			.1,
 			ext_pos,
-			save_every,
+			opt,
+		)
+	} else if *gen == "sing" {
+		single_particle(
+			int(1e4),
+			dt,
+			100,
 			brute,
 			eps,
 		)

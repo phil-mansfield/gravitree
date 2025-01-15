@@ -3,7 +3,7 @@ import numpy as np
 from glob import glob
 from scipy.signal import argrelextrema
 import argparse
-import os
+
 
 
 def load_particles(filename):
@@ -21,7 +21,7 @@ def get_trajectory(fn, idx, snaps, full=False):
 
     for k, snap in enumerate(snaps):
         file = fn.format(snap)
-        pos = np.loadtxt(file)
+        pos = load_particles(file)
         if not full:
             traj[k] = pos[idx, :3]
         else:
@@ -40,7 +40,6 @@ def get_quantity(fn, idx, snaps):
     
     return q
 
-
 def estimateOrbitalPeriod(v_orb, snaps, time_units=False, dt=.1):
     #arg rel extrema
     v = np.sqrt(np.sum(v_orb**2, axis=1))
@@ -50,33 +49,23 @@ def estimateOrbitalPeriod(v_orb, snaps, time_units=False, dt=.1):
         estimated_period *= dt
     return estimated_period
 
-def main(args):
-    halo = load_particles(f"../einasto_n={args.n}_a=18.dat")
-    lim = 2
+def main():
+    lim = 1
     # plot of a tracer over time
-    tracer_indices = np.arange(0, 10)
+    tracer_indices = np.arange(0, 1)
     fig, ax = plt.subplots(1, 3, dpi=200, figsize=(12, 4))
     axis_pairs = [[0, 1], [0, 2], [1, 2]]
 
     for k, a in enumerate(ax):
+        # a.set_xlim(.08, .12)
         a.set_xlim(-lim, lim)
         a.set_ylim(-lim, lim)
-        a.scatter(
-            halo[:, axis_pairs[k][0]],
-            halo[:, axis_pairs[k][1]],
-            c="k",
-            alpha=0.2,
-            s=0.1,
-        )
 
-    r_halo = np.sqrt(np.sum(halo**2, axis=1))
-    print(f"n_part(x<1){np.sum(r_halo <= 1.0)}")
-
-    snaps = np.arange(0, 1000, 1)
+    snaps = np.arange(0, 100, 1)
 
     for i, idx in enumerate(tracer_indices):
         for k, a in enumerate(ax):
-            traj_i = get_trajectory(os.path.join(f"snapshots_n={args.n}", "circ_t_{0}.dat"), i, snaps)
+            traj_i = get_trajectory("snapshots/single_t_{0}.dat", i, snaps)
 
             a.plot(
                 traj_i[:, axis_pairs[k][0]],
@@ -84,12 +73,12 @@ def main(args):
                 color="b",
                 lw=0.5,
                 marker="o",
-                markersize=0.1,
+                markersize=2,
                 alpha=0.2,
                 label="gt",
             )
 
-            traj_bf_i = get_trajectory(os.path.join(f"snapshots_n={args.n}", "circ_bf_t_{0}.dat"), idx, snaps)
+            traj_bf_i = get_trajectory("snapshots/single_bf_t_{0}.dat", i, snaps)
 
             a.plot(
                 traj_bf_i[:, axis_pairs[k][0]],
@@ -97,43 +86,37 @@ def main(args):
                 color="r",
                 lw=0.5,
                 marker="s",
-                markersize=0.1,
+                markersize=2,
                 alpha=0.2,
                 label="bf",
             )
 
             a.set_xlabel(axis_pairs[k][0])
-            a.set_ylabel(axis_pairs[k][1])
+            a.set_ylabel(axis_pairs[k][0])
 
-    fig.suptitle('circular orbit')
+    fig.suptitle('single particle orbit')
     fig.tight_layout()
-    plt.savefig(f"circular_orbit_n={args.n}.pdf")
+    plt.savefig("sing_orbit.pdf")
     plt.close()
 
-   # plot energy conservation
+    # plot energy conservation
 
     fig, ax = plt.subplots(dpi=200)
     for i, idx in enumerate(tracer_indices):
 
-        e_approx = get_quantity(os.path.join(f"snapshots_n={args.n}", "circ_e_{0}.dat"), idx, snaps)
-        e_exact  = get_quantity(os.path.join(f"snapshots_n={args.n}", "circ_bf_e_{0}.dat"),idx, snaps)
+        e_approx = get_quantity("snapshots/single_e_{0}.dat", idx, snaps)
+        e_exact  = get_quantity("snapshots/single_bf_e_{0}.dat",idx, snaps)
         ax.plot(snaps,
                 np.abs(e_approx - e_exact) / np.abs(e_exact),
                 color='r',
                 alpha=.2
         )
 
-    ax.set_yscale('log')
-    
+    ax.set_yscale('symlog')
+
+    print(np.abs(e_approx - e_exact) / np.abs(e_exact))
     ax.axhline(0, ls='--', alpha=.1, color='k')
-    fig.tight_layout()
-    ax.set_ylabel(r'$|\Delta E| / |E|$')
-    ax.set_xlabel('snapshot')
-    plt.savefig(f'circ_energy_n={args.n}.pdf')
-    plt.close()
+    plt.savefig('sing_energy.pdf')
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser()
-    parser.add_argument('n', type=int, help='Einasto profile to use')
-    args = parser.parse_args()
-    main(args)
+    main()
