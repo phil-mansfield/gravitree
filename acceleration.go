@@ -125,8 +125,10 @@ func BruteForceAccelerationAt(eps float64, x1, x2 [][3]float64, acc [][3]float64
 			}
 			dr2 += eps2
 
+			r := math.Sqrt(dr2)
+
 			for k := 0; k < 3; k++ {
-				acc[j][k] += dx[k] / (dr2 * math.Sqrt(dr2))
+				acc[j][k] += dx[k] / (r * r * r)
 			}
 		}
 	}
