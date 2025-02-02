@@ -22,3 +22,30 @@ func ReadPointFile(filename string) [][3]float64 {
 
 	return result
 }
+
+func ReadPhaseSpaceFile(filename string) [][6]float64 {
+
+	t := symtable.TextFile(filename)
+	cols := t.ReadFloat64s([]int{0, 1, 2, 3, 4, 5}) // column indices
+	xs := cols[0]
+	ys := cols[1]
+	zs := cols[2]
+	vxs := cols[4]
+	vys := cols[5]
+	vzs := cols[6]
+
+	var result [][6]float64
+
+	for i := 0; i < len(xs); i++ {
+		var point [6]float64
+		point[0] = xs[i]
+		point[1] = ys[i]
+		point[2] = zs[i]
+		point[3] = vxs[i]
+		point[4] = vys[i]
+		point[5] = vzs[i]
+		result = append(result, point)
+	}
+
+	return result
+}

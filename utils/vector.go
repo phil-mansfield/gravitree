@@ -35,3 +35,11 @@ func GetNorm(x [3]float64) float64 {
 	}
 	return math.Sqrt(r)
 }
+
+func Cross(x [3]float64, y [3]float64) [3]float64 {
+	var s [3]float64
+	s[0] = x[1]*y[2] - x[2]*y[1]
+	s[1] = x[2]*y[0] - x[0]*y[2]
+	s[2] = x[0]*y[1] - x[1]*y[0]
+	return s
+}
