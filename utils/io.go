@@ -26,13 +26,14 @@ func ReadPointFile(filename string) [][3]float64 {
 func ReadPhaseSpaceFile(filename string) [][6]float64 {
 
 	t := symtable.TextFile(filename)
+
 	cols := t.ReadFloat64s([]int{0, 1, 2, 3, 4, 5}) // column indices
 	xs := cols[0]
 	ys := cols[1]
 	zs := cols[2]
-	vxs := cols[4]
-	vys := cols[5]
-	vzs := cols[6]
+	vxs := cols[3]
+	vys := cols[4]
+	vzs := cols[5]
 
 	var result [][6]float64
 

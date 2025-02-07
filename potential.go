@@ -103,9 +103,9 @@ func BruteForcePotentialAt(eps float64, x1, x2 [][3]float64, phi []float64) {
 			dx := x2[j][0] - x1[i][0]
 			dy := x2[j][1] - x1[i][1]
 			dz := x2[j][2] - x1[i][2]
-			dx2 := dx*dx + dy*dy + dz*dz
+			dx2 := dx*dx + dy*dy + dz*dz + eps2
 
-			phiij := 1.0 / math.Sqrt(dx2+eps2)
+			phiij := 1.0 / math.Sqrt(dx2)
 			phi[j] -= phiij
 		}
 	}

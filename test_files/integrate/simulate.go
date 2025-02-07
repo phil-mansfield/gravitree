@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/phil-mansfield/gravitree"
+	"github.com/phil-mansfield/gravitree/utils"
 )
 
 func writeOrbit(filename string, x [][3]float64, v [][3]float64, ok []bool) {
@@ -51,34 +52,30 @@ func MakeDirectory(path string) {
 	}
 }
 
-func SimulateCircularOrbits(
-	npart int,
-	r0 float64,
-	dr float64,
+func SimulateOrbit(
+	pos [][3]float64,
+	vel [][3]float64,
 	extPos [][3]float64,
 	opt gravitree.SimulationOptions,
 ) {
 
-	orbitFile := filepath.Join(opt.SaveDirectory, "circ_t_%d.dat")
-	energyFile := filepath.Join(opt.SaveDirectory, "circ_e.dat")
-	timeFile := filepath.Join(opt.SaveDirectory, "circ_t.dat")
+	orbitFile := filepath.Join(opt.SaveDirectory, "snapshot_%d.dat")
+	energyFile := filepath.Join(opt.SaveDirectory, "_energy.dat")
+	timeFile := filepath.Join(opt.SaveDirectory, "_time.dat")
+	accFile := filepath.Join(opt.SaveDirectory, "_acc.dat")
 
 	if opt.Brute {
-		orbitFile = filepath.Join(opt.SaveDirectory, "circ_bf_t_%d.dat") //
-		energyFile = filepath.Join(opt.SaveDirectory, "circ_bf_e.dat")
+		orbitFile = filepath.Join(opt.SaveDirectory, "snapshot_bf_%d.dat") //
+		energyFile = filepath.Join(opt.SaveDirectory, "_energy_bf.dat")
 		fmt.Printf("Calculating brute force... \n")
 	}
 
-	pos := make([][3]float64, npart)
-	vel := make([][3]float64, npart)
-	tCirc := make([]float64, npart)
-	ok := make([]bool, npart)
+	tCirc := make([]float64, len(pos))
+	ok := make([]bool, len(pos))
 
-	for i := 0; i < npart; i++ {
+	for i := 0; i < len(pos); i++ {
 		ok[i] = true
-		pos[i] = [3]float64{r0 + float64(i)*dr, 0, 0}
-		vel[i] = [3]float64{0, gravitree.GetCircularVelocity(extPos, r0+float64(i)*dr), 0}
-		tCirc[i] = 2 * math.Pi * (r0 + float64(i)*dr) / gravitree.GetCircularVelocity(extPos, r0+float64(i)*dr)
+		tCirc[i] = 2 * math.Pi * utils.GetNorm(pos[i]) / gravitree.GetCircularVelocity(extPos, utils.GetNorm(pos[i]), opt.ParticleMass)
 	}
 
 	tree := gravitree.NewTree(extPos)
@@ -98,6 +95,111 @@ func SimulateCircularOrbits(
 	}
 
 	for i := range opt.Steps {
+
+		accNorm := 0.0
+
+		if i%opt.SaveEvery == 0 {
+			fmt.Printf("(ics) step %v; brute: %t \n", i, opt.Brute)
+			writeOrbit(fmt.Sprintf(orbitFile, i/opt.SaveEvery), pos, vel, ok)
+			e := gravitree.CalculateEnergy(pos, vel, extPos, opt.Eps, ok)
+
+			writeQuantity(energyFile, e)
+
+			ti := make([]float64, len(pos))
+
+			for k := 0; k < len(pos); k++ {
+				ti[k] = t / tCirc[k]
+			}
+
+			writeQuantity(timeFile, ti)
+
+			acc := gravitree.Acceleration(make([][3]float64, len(pos)))
+			gravitree.BruteForceAccelerationAt(opt.Eps, tree.Points, pos, acc)
+
+			a := make([]float64, len(pos))
+
+			for k := 0; k < len(pos); k++ {
+				a[k] = utils.GetNorm(acc[k])
+			}
+			writeQuantity(accFile, a)
+
+		}
+
+		if opt.Integrator == "leapfrog" || opt.Integrator == "lfadp" {
+			gravitree.LeapfrogStep(pos, vel, tree, tracer, ok, &opt.Dt, opt.Eps, opt.Brute, opt.ParticleMass)
+
+			// Might be slow.
+			if opt.Integrator == "lfadp" {
+				for k := 0; k < len(pos); k++ {
+					acc := gravitree.Acceleration(make([][3]float64, len(pos)))
+					gravitree.BruteForceAccelerationAt(opt.Eps, tree.Points, pos, acc)
+					accNorm = math.Max(accNorm, utils.GetNorm(acc[k]))
+				}
+
+				// This tolerance is from Ludlow+19
+				opt.Dt = gravitree.AdaptTimeStep(opt.Eps, accNorm, 0.025)
+			}
+		} else if opt.Integrator == "rk4" {
+			gravitree.RK4Step(pos, vel, tree, tracer, ok, &opt.Dt, opt.Eps, opt.Brute, opt.ParticleMass)
+		} else {
+			panic("Unknown integrator specified.")
+		}
+
+		t += opt.Dt
+	}
+
+}
+
+func SimulateCircularOrbits(
+	npart int,
+	r0 float64,
+	dr float64,
+	extPos [][3]float64,
+	opt gravitree.SimulationOptions,
+) {
+
+	orbitFile := filepath.Join(opt.SaveDirectory, "snapshot_%d.dat")
+	energyFile := filepath.Join(opt.SaveDirectory, "_energy.dat")
+	timeFile := filepath.Join(opt.SaveDirectory, "_time.dat")
+	accFile := filepath.Join(opt.SaveDirectory, "_acc.dat")
+
+	if opt.Brute {
+		orbitFile = filepath.Join(opt.SaveDirectory, "snapshot_bf_%d.dat") //
+		energyFile = filepath.Join(opt.SaveDirectory, "_energy_bf.dat")
+		fmt.Printf("Calculating brute force... \n")
+	}
+
+	pos := make([][3]float64, npart)
+	vel := make([][3]float64, npart)
+	tCirc := make([]float64, npart)
+	ok := make([]bool, npart)
+
+	for i := 0; i < npart; i++ {
+		ok[i] = true
+		pos[i] = [3]float64{r0 + float64(i)*dr, 0, 0}
+		vel[i] = [3]float64{0, gravitree.GetCircularVelocity(extPos, r0+float64(i)*dr, opt.ParticleMass), 0}
+		tCirc[i] = 2 * math.Pi * (r0 + float64(i)*dr) / gravitree.GetCircularVelocity(extPos, r0+float64(i)*dr, opt.ParticleMass)
+	}
+
+	tree := gravitree.NewTree(extPos)
+
+	tracer := gravitree.NewArrayTree(pos)
+
+	t := 0.0
+
+	_, err := os.Create(energyFile)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	_, err = os.Create(timeFile)
+	if err != nil {
+		panic(err.Error())
+	}
+
+	for i := range opt.Steps {
+
+		accNorm := 0.0
 
 		if i%opt.SaveEvery == 0 {
 			fmt.Printf("(circ) step %v; brute: %t \n", i, opt.Brute)
@@ -114,12 +216,35 @@ func SimulateCircularOrbits(
 
 			writeQuantity(timeFile, ti)
 
+			acc := gravitree.Acceleration(make([][3]float64, npart))
+			// tree.EvaluateAt()
+			gravitree.BruteForceAccelerationAt(opt.Eps, tree.Points, pos, acc)
+
+			a := make([]float64, npart)
+
+			for k := 0; k < npart; k++ {
+				a[k] = utils.GetNorm(acc[k])
+			}
+			writeQuantity(accFile, a)
+
 		}
 
-		if opt.Integrator == "leapfrog" {
-			gravitree.LeapfrogStep(pos, vel, tree, tracer, ok, opt.Dt, opt.Eps, opt.Brute)
+		if opt.Integrator == "leapfrog" || opt.Integrator == "lfadp" {
+			gravitree.LeapfrogStep(pos, vel, tree, tracer, ok, &opt.Dt, opt.Eps, opt.Brute, opt.ParticleMass)
+
+			// Might be slow.
+			if opt.Integrator == "lfadp" {
+				for k := 0; k < npart; k++ {
+					acc := gravitree.Acceleration(make([][3]float64, npart))
+					gravitree.BruteForceAccelerationAt(opt.Eps, tree.Points, pos, acc)
+					accNorm = math.Max(accNorm, utils.GetNorm(acc[k]))
+				}
+
+				// This tolerance is from Ludlow+19
+				opt.Dt = gravitree.AdaptTimeStep(opt.Eps, accNorm, 0.025)
+			}
 		} else if opt.Integrator == "rk4" {
-			gravitree.RK4Step(pos, vel, tree, tracer, ok, opt.Dt, opt.Eps, opt.Brute)
+			gravitree.RK4Step(pos, vel, tree, tracer, ok, &opt.Dt, opt.Eps, opt.Brute, opt.ParticleMass)
 		} else {
 			panic("Unknown integrator specified.")
 		}
@@ -130,13 +255,13 @@ func SimulateCircularOrbits(
 }
 
 func SimulatePointOrbit(opt gravitree.SimulationOptions) {
-	orbitFile := filepath.Join(opt.SaveDirectory, "point_t_%d.dat")
-	energyFile := filepath.Join(opt.SaveDirectory, "point_e.dat")
-	timeFile := filepath.Join(opt.SaveDirectory, "point_t.dat")
+	orbitFile := filepath.Join(opt.SaveDirectory, "snapshot_%d.dat")
+	energyFile := filepath.Join(opt.SaveDirectory, "_energy.dat")
+	timeFile := filepath.Join(opt.SaveDirectory, "_time.dat")
 
 	if opt.Brute {
-		orbitFile = filepath.Join(opt.SaveDirectory, "point_bf_t_%d.dat")
-		energyFile = filepath.Join(opt.SaveDirectory, "point_bf_e.dat")
+		orbitFile = filepath.Join(opt.SaveDirectory, "snapshot_bf_%d.dat")
+		energyFile = filepath.Join(opt.SaveDirectory, "_energy_bf.dat")
 		fmt.Printf("Calculating using brute force. \n")
 	}
 
@@ -149,7 +274,7 @@ func SimulatePointOrbit(opt gravitree.SimulationOptions) {
 
 	ok[0] = true
 	pos[0] = [3]float64{1., 0, 0}
-	vel[0] = [3]float64{0, 1., 0}
+	vel[0] = [3]float64{0, .1, 0}
 
 	tracer := gravitree.NewArrayTree(pos)
 
@@ -167,6 +292,8 @@ func SimulatePointOrbit(opt gravitree.SimulationOptions) {
 
 	for i := range opt.Steps {
 
+		accNorm := 0.0
+
 		if i%opt.SaveEvery == 0 {
 			fmt.Printf("(single) step %v; brute: %t \n", i, opt.Brute)
 			writeOrbit(fmt.Sprintf(orbitFile, i/opt.SaveEvery), pos, vel, ok)
@@ -177,10 +304,18 @@ func SimulatePointOrbit(opt gravitree.SimulationOptions) {
 			writeQuantity(timeFile, ti)
 		}
 
-		if opt.Integrator == "leapfrog" {
-			gravitree.LeapfrogStep(pos, vel, tree, tracer, ok, opt.Dt, opt.Eps, opt.Brute)
+		if opt.Integrator == "leapfrog" || opt.Integrator == "lfadp" {
+			gravitree.LeapfrogStep(pos, vel, tree, tracer, ok, &opt.Dt, opt.Eps, opt.Brute, opt.ParticleMass)
+
+			// Might be slow.
+			if opt.Integrator == "lfadp" {
+				acc := gravitree.Acceleration(make([][3]float64, 1))
+				gravitree.BruteForceAccelerationAt(opt.Eps, tree.Points, pos, acc)
+				accNorm = utils.GetNorm(acc[0])
+				opt.Dt = gravitree.AdaptTimeStep(opt.Eps, accNorm, 0.025)
+			}
 		} else if opt.Integrator == "rk4" {
-			gravitree.RK4Step(pos, vel, tree, tracer, ok, opt.Dt, opt.Eps, opt.Brute)
+			gravitree.RK4Step(pos, vel, tree, tracer, ok, &opt.Dt, opt.Eps, opt.Brute, 1.)
 		} else {
 			panic("Unknown integrator specified.")
 		}
@@ -189,13 +324,18 @@ func SimulatePointOrbit(opt gravitree.SimulationOptions) {
 	}
 }
 
-func SimulateDipoleOrbit(r, dFraction float64, opt gravitree.SimulationOptions) {
-	orbitFile := "snapshots/dipole_t_%d.dat"
-	energyFile := "snapshots/dipole_e.dat"
+func SimulateDipoleOrbit(r, dp float64, opt gravitree.SimulationOptions) {
+	orbitFile := filepath.Join(opt.SaveDirectory, "snapshot_%d.dat")
+	energyFile := filepath.Join(opt.SaveDirectory, "_energy.dat")
+	timeFile := filepath.Join(opt.SaveDirectory, "_time.dat")
+	dtFile := filepath.Join(opt.SaveDirectory, "_dt.dat")
+
+	opt.ParticleMass = 0.5
 
 	if opt.Brute {
-		orbitFile = "snapshots/dipole_bf_t_%d.dat"
-		energyFile = "snapshots/dipole_bf_e.dat"
+		orbitFile = filepath.Join(opt.SaveDirectory, "snapshot_bf_%d.dat")
+		energyFile = filepath.Join(opt.SaveDirectory, "_energy_bf.dat")
+		dtFile = filepath.Join(opt.SaveDirectory, "_dt_bf.dat")
 		fmt.Printf("Calculating using brute force. \n")
 	}
 
@@ -203,12 +343,12 @@ func SimulateDipoleOrbit(r, dFraction float64, opt gravitree.SimulationOptions) 
 	vel := make([][3]float64, 1)
 	ok := make([]bool, 1)
 
-	extPos := [][3]float64{{r * dFraction, 0., 0.}, {-r * dFraction, 0., 0.}}
+	extPos := [][3]float64{{dp, 0., 0.}, {-dp, 0., 0.}}
 	tree := gravitree.NewTree(extPos)
 
 	ok[0] = true
-	pos[0] = [3]float64{r, 0, 0}
-	vel[0] = [3]float64{0, gravitree.GetCircularVelocity(extPos, r), 0}
+	pos[0] = [3]float64{1.0, 0, 0}
+	vel[0] = [3]float64{0, gravitree.GetCircularVelocity(extPos, r, opt.ParticleMass), 0}
 
 	tracer := gravitree.NewArrayTree(pos)
 
@@ -219,24 +359,44 @@ func SimulateDipoleOrbit(r, dFraction float64, opt gravitree.SimulationOptions) 
 		panic(err.Error())
 	}
 
-	for i := range opt.Steps {
+	stepCount := 0
 
-		if i%opt.SaveEvery == 0 {
-			fmt.Printf("(single) step %v; brute: %t \n", i, opt.Brute)
-			writeOrbit(fmt.Sprintf(orbitFile, i/opt.SaveEvery), pos, vel, ok)
+	for t <= opt.TimeEnd {
+
+		if stepCount%opt.SaveEvery == 0 {
+			fmt.Printf("(dipole) step %v; brute: %t \n", stepCount, opt.Brute)
+			writeOrbit(fmt.Sprintf(orbitFile, stepCount/opt.SaveEvery), pos, vel, ok)
 			e := gravitree.CalculateEnergy(pos, vel, extPos, opt.Eps, ok)
 			writeQuantity(energyFile, e)
+			ti := make([]float64, 1)
+			ti[0] = t / (2 * math.Pi) // 2π
+			writeQuantity(timeFile, ti)
+			writeQuantity(dtFile, []float64{opt.Dt})
+			acc := gravitree.Acceleration(make([][3]float64, 1))
+			gravitree.BruteForceAccelerationAt(opt.Eps, tree.Points, pos, acc)
+			a := make([]float64, 1)
+			a[0] = utils.GetNorm(acc[0])
+			writeQuantity(filepath.Join(opt.SaveDirectory, "_acc.dat"), a)
 		}
 
-		if opt.Integrator == "leapfrog" {
-			gravitree.LeapfrogStep(pos, vel, tree, tracer, ok, opt.Dt, opt.Eps, opt.Brute)
+		if opt.Integrator == "leapfrog" || opt.Integrator == "lfadp" {
+			if opt.Integrator == "lfadp" {
+				acc := gravitree.Acceleration(make([][3]float64, 1))
+				gravitree.BruteForceAccelerationAt(opt.Eps, tree.Points, pos, acc)
+				accNorm := utils.GetNorm(acc[0])
+				opt.Dt = gravitree.AdaptTimeStep(opt.Eps, accNorm, opt.Eta)
+			}
+
+			gravitree.LeapfrogStep(pos, vel, tree, tracer, ok, &opt.Dt, opt.Eps, opt.Brute, opt.ParticleMass)
+
 		} else if opt.Integrator == "rk4" {
-			gravitree.RK4Step(pos, vel, tree, tracer, ok, opt.Dt, opt.Eps, opt.Brute)
+			gravitree.RK4Step(pos, vel, tree, tracer, ok, &opt.Dt, opt.Eps, opt.Brute, opt.ParticleMass)
 		} else {
 			panic("Unknown integrator specified.")
 		}
 
 		t += opt.Dt
+		stepCount++
 	}
 }
 
@@ -367,10 +527,11 @@ func SimulateStream(
 			vel[i/spawnEvery+2] = spray[3]
 		}
 
+		// TODO: CHANGE PARTICLE MASS
 		if opt.Integrator == "leapfrog" {
-			gravitree.LeapfrogStep(pos, vel, tree, tracer, ok, opt.Dt, opt.Eps, opt.Brute)
+			gravitree.LeapfrogStep(pos, vel, tree, tracer, ok, &opt.Dt, opt.Eps, opt.Brute, 1.)
 		} else if opt.Integrator == "rk4" {
-			gravitree.RK4Step(pos, vel, tree, tracer, ok, opt.Dt, opt.Eps, opt.Brute)
+			gravitree.RK4Step(pos, vel, tree, tracer, ok, &opt.Dt, opt.Eps, opt.Brute, 1.)
 		} else {
 			panic("Unknown integrator specified.")
 		}
@@ -390,6 +551,10 @@ func main() {
 	dt := flag.String("dt", "1e-4", "timestep")
 	theta := flag.String("theta", "1e-2", "opening angle")
 	crit := flag.String("crit", "pkd", "bh scheme")
+	dp := flag.Float64("dp", -1, "dipole length")
+	eta := flag.Float64("eta", 0.025, "gadget adaptive timestepping")
+
+	adaptive := flag.Bool("adp", false, "adaptive timestepping for leapfrog")
 	saveDir := flag.String("saveto", "", "directory to store snapshots")
 
 	// default is pkd
@@ -418,18 +583,16 @@ func main() {
 	// obtain static distribution to orbit around
 	particle_fn := fmt.Sprintf("../einasto_n=%s_a=18.dat", *npts)
 	extPos := gravitree.ReadPointFile(particle_fn)
-	extPos = gravitree.RescalePoints(extPos, 1./(0.1))
 
-	x0 := [3]float64{1., 0, 0}
-	v0 := [3]float64{0, gravitree.GetCircularVelocity(extPos, 1.), 0}
+	rvirPts := gravitree.GetParticleCount(extPos, 1.)
+	x0 := [3]float64{1., 0., 0.}
+	v0 := [3]float64{0, gravitree.GetCircularVelocity(extPos, 1., 1./float64(rvirPts)), 0}
 
 	// eps—Mimics Symphony softening scale
 	// given that the particle distribution
 	// represents the DM potential
 
-	// eps := 0.096 / math.Pow(float64(len(extPos)), 1./3.)
-	// eps := 0.004
-	eps := 0.004 / math.Pow(float64(len(extPos)), 1./3.)
+	eps := 0.004 / math.Pow(float64(rvirPts), 1./3.)
 
 	fepsValue, _ := strconv.ParseFloat(*feps, 64)
 	thetaValue, _ := strconv.ParseFloat(*theta, 64)
@@ -457,45 +620,84 @@ func main() {
 
 	} else if *gen == "circ" {
 
-		// TEST:
-		// Compare energies against smooth Einasto profile
+		integ_type := *integrator
 
-		path = fmt.Sprintf("snapshots_n=%s_feps=%s_int=%s_dt=%s_th=%s", *npts, *feps, *integrator, *dt, *theta)
+		if *adaptive {
+			integ_type = "lfadp"
+		}
+
+		path = fmt.Sprintf("snapshots_n=%s_feps=%s_int=%s_dt=%s_th=%s", *npts, *feps, integ_type, *dt, *theta)
+
 		path = filepath.Join(*saveDir, path)
 
 		MakeDirectory(path)
 
-		time := 40.
+		time := (math.Pi * 2.) * 5
 		steps := int(time / dtVal)
 
 		opt := gravitree.SimulationOptions{
-			Brute: brute, Steps: steps, Dt: dtVal, SaveEvery: 10,
+			Brute: brute, Steps: steps, Dt: dtVal, SaveEvery: 1,
 			Eps: fepsValue * eps, SaveDirectory: path, Integrator: *integrator,
-			TreeOptions: gravitree.TreeOptions{Criteria: opCrit, Theta: thetaValue},
+			TreeOptions:  gravitree.TreeOptions{Criteria: opCrit, Theta: thetaValue},
+			ParticleMass: 1. / float64(rvirPts),
 		}
 
-		SimulateCircularOrbits(10, .1, .1, extPos, opt)
+		SimulateCircularOrbits(1, 1., 0., extPos, opt)
+
+	} else if *gen == "ics" {
+
+		integ_type := *integrator
+
+		if *adaptive {
+			integ_type = "lfadp"
+		}
+
+		path = fmt.Sprintf("snapshots_ics_n=%s_feps=%s_int=%s_dt=%s_th=%s", *npts, *feps, integ_type, *dt, *theta)
+
+		path = filepath.Join(*saveDir, path)
+
+		MakeDirectory(path)
+
+		time := (math.Pi * 2.) * 5
+		steps := int(time / dtVal)
+
+		opt := gravitree.SimulationOptions{
+			Brute: brute, Steps: steps, Dt: dtVal, SaveEvery: 1,
+			Eps: fepsValue * eps, SaveDirectory: path, Integrator: *integrator,
+			TreeOptions:  gravitree.TreeOptions{Criteria: opCrit, Theta: thetaValue},
+			ParticleMass: 1. / float64(rvirPts),
+		}
+
+		phaseSpace := utils.ReadPhaseSpaceFile("ics.dat")
+
+		pos := make([][3]float64, len(phaseSpace))
+		vel := make([][3]float64, len(phaseSpace))
+
+		for i := range phaseSpace {
+			pos[i] = [3]float64{phaseSpace[i][0], phaseSpace[i][1], phaseSpace[i][2]}
+			vel[i] = [3]float64{phaseSpace[i][3], phaseSpace[i][4], phaseSpace[i][5]}
+		}
+
+		SimulateOrbit(pos, vel, extPos, opt)
 
 	} else if *gen == "single" {
 
-		// TEST:
-		// Need to simulate at least 10 orbits
-		// 3 orbits ~ 10 time units
+		integ_type := *integrator
 
-		path = fmt.Sprintf("snapshots_int=%s_dt=%s", *integrator, *dt)
+		if *adaptive {
+			integ_type = "lfadp"
+		}
+
+		path = fmt.Sprintf("snapshots_int=%s_dt=%s", integ_type, *dt)
 		path = filepath.Join(*saveDir, path)
-
-		eps = 0
-
-		dtVal, _ := strconv.ParseFloat(*dt, 64)
-		time := 40.
+		time := 2 * math.Pi
 
 		MakeDirectory(path)
 		opt := gravitree.SimulationOptions{
 			// ten orbits
 			// sample 1/10th of an orbit per snapshot
 			Brute: brute, Steps: int(time / dtVal), Dt: dtVal, SaveEvery: 10,
-			Eps: eps, SaveDirectory: path, Integrator: *integrator,
+			Eps: 0.0, SaveDirectory: path, Integrator: *integrator,
 			TreeOptions: gravitree.TreeOptions{Criteria: opCrit, Theta: thetaValue},
 		}
 
@@ -506,27 +708,24 @@ func main() {
 		// TEST:
 		// See accuracy as a function of dipole length
 
-		path = fmt.Sprintf("snapshots_n=%s_feps=%s_int=%s_dt=%s_th=%s", *npts, *feps, *integrator, *dt, *theta)
-
+		path = fmt.Sprintf("snapshots_feps=%s_int=%s_dt=%s_th=%s_dp=%v_eta=%v", *feps, *integrator, *dt, *theta, *dp, *eta)
 		path = filepath.Join(*saveDir, path)
+
 		MakeDirectory(path)
 
+		timeEnd := 10.0
+
 		opt := gravitree.SimulationOptions{
-			Brute: brute, Steps: int(1e5), Dt: 0.001, SaveEvery: 100,
-			Eps: fepsValue, SaveDirectory: path, Integrator: *integrator,
+			Brute: brute, Steps: 1e4, Dt: dtVal, SaveEvery: 100,
+			Eps: fepsValue * eps, SaveDirectory: path, Integrator: *integrator,
 			TreeOptions: gravitree.TreeOptions{Criteria: gravitree.PKDGRAV3, Theta: thetaValue},
+			TimeEnd:     timeEnd,
+			Eta:         *eta,
 		}
 
-		SimulateDipoleOrbit(1., 1e-2, opt)
+		SimulateDipoleOrbit(1., *dp, opt)
 
 	} else {
 		panic("Unknown tracer configuration! (`gen` can be `stream` or `circ`)")
 	}
 }
-
-// test to do (actually)
-// analytic potential
-// with an orbit we believe
-
-// change values on force softening scale
-// pericenter > softening length

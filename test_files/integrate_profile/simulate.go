@@ -81,9 +81,14 @@ func SimulateEinasto(
 		panic(err.Error())
 	}
 
+	endTime := float64(opt.Steps) * opt.Dt
+
 	for i := range opt.Steps {
 
+		accNorm := 0.0
+
 		if i%opt.SaveEvery == 0 {
+
 			// fmt.Printf("vc: %v, pot: %v, mr: %v \n", prof.GetCircularVelocity(1.), prof.GetPotential(1.), prof.EnclosedMass(1.))
 			fmt.Printf("(einasto) step %v \n", i)
 
@@ -113,8 +118,21 @@ func SimulateEinasto(
 			writeQuantity(accFile, a)
 			writeQuantity(timeFile, ti)
 		}
-		if opt.Integrator == "leapfrog" {
+		if opt.Integrator == "leapfrog" || opt.Integrator == "lfadp" {
 			prof.LeapfrogStep(pos, vel, opt.Dt)
+			if opt.Integrator == "lfadp" {
+				// acc := gravitree.Acceleration(make([][3]float64, 1))
+				// gravitree.BruteForceAccelerationAt(opt.Eps, tree.Points, pos, acc)
+
+				acc := make([][3]float64, len(pos))
+				prof.GetAcceleration(pos, acc)
+
+				for k := 0; k < len(acc); k++ {
+					accNorm = math.Max(accNorm, utils.GetNorm(acc[k]))
+				}
+
+				opt.Dt = gravitree.AdaptTimeStep(opt.Eps, accNorm, 0.025)
+			}
 		} else if opt.Integrator == "rk4" {
 			prof.RK4Step(pos, vel, opt.Dt)
 		} else {
@@ -122,6 +140,10 @@ func SimulateEinasto(
 		}
 
 		t += opt.Dt
+
+		if t >= endTime {
+			break
+		}
 	}
 }
 
@@ -155,7 +177,11 @@ func SimulatePlummer(
 		panic(err.Error())
 	}
 
+	endTime := float64(opt.Steps) * opt.Dt
+
 	for i := range opt.Steps {
+
+		accNorm := 0.0
 
 		if i%opt.SaveEvery == 0 {
 			fmt.Printf("(plummer) step %v \n", i)
@@ -181,8 +207,27 @@ func SimulatePlummer(
 			writeQuantity(accFile, a)
 			writeQuantity(timeFile, ti)
 		}
-		if opt.Integrator == "leapfrog" {
+
+		if opt.Integrator == "leapfrog" || opt.Integrator == "lfadp" {
 			prof.LeapfrogStep(pos, vel, opt.Dt)
+			// Might be slow.
+			if opt.Integrator == "lfadp" {
+				// acc := gravitree.Acceleration(make([][3]float64, 1))
+				// gravitree.BruteForceAccelerationAt(opt.Eps, tree.Points, pos, acc)
+
+				acc := make([][3]float64, len(pos))
+				prof.GetAcceleration(pos, acc)
+
+				for k := 0; k < len(acc); k++ {
+					accNorm = math.Max(accNorm, utils.GetNorm(acc[k]))
+				}
+
+				opt.Dt = gravitree.AdaptTimeStep(opt.Eps, accNorm, 0.025)
+
+				if opt.Dt == 0 {
+					panic("Dt is zero.")
+				}
+			}
 		} else if opt.Integrator == "rk4" {
 			prof.RK4Step(pos, vel, opt.Dt)
 		} else {
@@ -190,6 +235,11 @@ func SimulatePlummer(
 		}
 
 		t += opt.Dt
+
+		if t >= endTime {
+			break
+		}
+
 	}
 }
 
@@ -223,7 +273,11 @@ func SimulatePoint(
 		panic(err.Error())
 	}
 
+	endTime := float64(opt.Steps) * opt.Dt
+
 	for i := range opt.Steps {
+
+		accNorm := 0.0
 
 		if i%opt.SaveEvery == 0 {
 			fmt.Printf("(point) step %v \n", i)
@@ -247,8 +301,21 @@ func SimulatePoint(
 			writeQuantity(accFile, a)
 			writeQuantity(timeFile, ti)
 		}
-		if opt.Integrator == "leapfrog" {
+		if opt.Integrator == "leapfrog" || opt.Integrator == "lfadp" {
 			prof.LeapfrogStep(pos, vel, opt.Dt)
+			if opt.Integrator == "lfadp" {
+				// acc := gravitree.Acceleration(make([][3]float64, 1))
+				// gravitree.BruteForceAccelerationAt(opt.Eps, tree.Points, pos, acc)
+
+				acc := make([][3]float64, len(pos))
+				prof.GetAcceleration(pos, acc)
+
+				for k := 0; k < len(acc); k++ {
+					accNorm = math.Max(accNorm, utils.GetNorm(acc[k]))
+				}
+
+				opt.Dt = gravitree.AdaptTimeStep(opt.Eps, accNorm, 0.025)
+			}
 		} else if opt.Integrator == "rk4" {
 			prof.RK4Step(pos, vel, opt.Dt)
 		} else {
@@ -256,6 +323,10 @@ func SimulatePoint(
 		}
 
 		t += opt.Dt
+
+		if t >= endTime {
+			break
+		}
 	}
 }
 
@@ -267,6 +338,7 @@ func main() {
 	// icFile := flag.String("ic", "ic.dat", "initial phase space file")
 	vcFrac := flag.Float64("vc", 1., "fraction of circular speed")
 	saveDir := flag.String("saveto", "", "directory to store snapshots")
+	adaptive := flag.Bool("adp", false, "adaptive timestepping for leapfrog")
 
 	flag.Parse()
 
@@ -282,6 +354,14 @@ func main() {
 
 	// steps := 1000
 
+	integ_type := *integrator
+
+	if *adaptive {
+		integ_type = "lfadp"
+	}
+
+	eps := 1e-5
+
 	if *gen == "einasto" {
 		path = fmt.Sprintf("einasto_int=%s_dt=%s", *integrator, *dt)
 		path = filepath.Join(*saveDir, path)
@@ -289,7 +369,8 @@ func main() {
 
 		opt := gravitree.SimulationOptions{
 			Steps: steps, Dt: dtVal, SaveEvery: 10,
-			SaveDirectory: path, Integrator: *integrator,
+			SaveDirectory: path, Integrator: integ_type,
+			Eps: eps,
 		}
 
 		prof := gravitree.Einasto{
@@ -301,13 +382,14 @@ func main() {
 		SimulateEinasto(pos, vel, opt, &prof)
 
 	} else if *gen == "plummer" {
-		path = fmt.Sprintf("plummer_int=%s_dt=%s", *integrator, *dt)
+		path = fmt.Sprintf("plummer_int=%s_dt=%s", integ_type, *dt)
 		path = filepath.Join(*saveDir, path)
 		MakeDirectory(path)
 
 		opt := gravitree.SimulationOptions{
 			Steps: steps, Dt: dtVal, SaveEvery: 10,
-			SaveDirectory: path, Integrator: *integrator,
+			SaveDirectory: path, Integrator: integ_type,
+			Eps: eps,
 		}
 
 		prof := gravitree.Plummer{
@@ -316,13 +398,14 @@ func main() {
 		vel := [][3]float64{{0., (*vcFrac) * prof.GetCircularVelocity(r0), 0.}}
 		SimulatePlummer(pos, vel, opt, &prof)
 	} else if *gen == "point" {
-		path = fmt.Sprintf("point_int=%s_dt=%s", *integrator, *dt)
+		path = fmt.Sprintf("point_int=%s_dt=%s", integ_type, *dt)
 		path = filepath.Join(*saveDir, path)
 		MakeDirectory(path)
 
 		opt := gravitree.SimulationOptions{
 			Steps: steps, Dt: dtVal, SaveEvery: 10,
-			SaveDirectory: path, Integrator: *integrator,
+			SaveDirectory: path, Integrator: integ_type,
+			Eps: eps,
 		}
 
 		prof := gravitree.PointMass{

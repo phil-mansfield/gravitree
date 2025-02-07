@@ -17,6 +17,8 @@ type SimulationOptions struct {
 	TreeOptions   TreeOptions
 	Integrator    string
 	ParticleMass  float64
+	TimeEnd       float64
+	Eta           float64
 }
 
 // Code units:
@@ -31,30 +33,37 @@ func LeapfrogStep(
 	tree *Tree, // tree loaded with massive particles
 	tracer *ArrayTree, // tree loaded with tracers to evaluate forces on
 	ok []bool, // flag to evaluate forces on certain particles
-	dt float64, // timestep (see units below)
+	dt *float64, // timestep (see units below)
 	eps float64, // force softening (Plummer kernel)
 	brute bool, // calculate exact forces?
 	mp float64,
 ) {
 
-	// pos[step, :] = pos[step-1, :] + 0.5 * dt * vel[step-1, :]
-	// acc = get_accelerations(pos, step)
-
-	// if _acc is not None:
-	//     _acc[step, :] = acc
-
-	// vel[step, :] = vel[step-1, :] + dt * acc
-	// pos[step, :] += 0.5 * dt * vel[step, :]
-
 	acc := Acceleration(make([][3]float64, len(pos)))
+	if brute {
+		BruteForceAccelerationAt(eps, tree.Points, pos, acc)
+	} else {
+		tracer.Tree.Points = pos
+		tracer.Update()
+		tree.EvaluateAt(&tracer.Tree, eps, acc)
+	}
 
-	// Perform first half-kick
 	for i := 0; i < len(pos); i++ {
-		if ok[i] {
-			for j := 0; j < 3; j++ {
-				// mass = 1 / npts
-				pos[i][j] += (dt / 2.0) * vel[i][j]
-			}
+		for j := 0; j < 3; j++ {
+			vel[i][j] += ((*dt) / 2.0) * mp * (acc)[i][j]
+		}
+	}
+
+	// Perform drift step
+	for i := 0; i < len(pos); i++ {
+		for j := 0; j < 3; j++ {
+			pos[i][j] += (*dt) * vel[i][j]
+		}
+	}
+
+	for i := range acc {
+		for j := range acc[i] {
+			acc[i][j] = 0.0
 		}
 	}
 
@@ -66,23 +75,17 @@ func LeapfrogStep(
 		tree.EvaluateAt(&tracer.Tree, eps, acc)
 	}
 
-	// Perform kick step
-	for i := 0; i < len(pos); i++ {
-		if ok[i] {
-			for j := 0; j < 3; j++ {
-				vel[i][j] += dt * acc[i][j] * mp
-			}
-		}
-	}
-
-	// Perform second half-drift
+	// Perform second half-kick
 	for i := range pos {
-		if ok[i] {
-			for j := range 3 {
-				pos[i][j] += (dt / 2.0) * vel[i][j]
-			}
+		for j := range 3 {
+			vel[i][j] += ((*dt) / 2.0) * mp * (acc)[i][j]
 		}
 	}
+}
+
+// Gadget-1 timestep adaptation using softening scale.
+func AdaptTimeStep(eps, acc, errAccTol float64) float64 {
+	return math.Sqrt(2 * errAccTol * eps / acc)
 }
 
 func RK4Step(
@@ -91,7 +94,7 @@ func RK4Step(
 	tree *Tree, // tree loaded with massive particles
 	tracer *ArrayTree, // tree loaded with tracers to evaluate forces on
 	ok []bool, // flag to evaluate forces on certain particles
-	dt float64, // timestep (see units below)
+	dt *float64, // timestep (see units below)
 	eps float64, // force softening (Plummer kernel)
 	brute bool, // calculate exact forces?
 	mp float64,
@@ -109,8 +112,8 @@ func RK4Step(
 	}
 
 	//
-	kx1 := utils.RescalePoints(vel, dt)
-	kv1 := utils.RescalePoints(acc, dt*mp)
+	kx1 := utils.RescalePoints(vel, (*dt))
+	kv1 := utils.RescalePoints(acc, (*dt)*mp)
 
 	// phase space position half a step forward
 	wx1 := utils.PointwiseAdd(pos, utils.RescalePoints(kx1, 0.5))
@@ -132,8 +135,8 @@ func RK4Step(
 		tree.EvaluateAt(&tracer.Tree, eps, acc)
 	}
 
-	kx2 := utils.RescalePoints(wv1, dt)
-	kv2 := utils.RescalePoints(acc, dt*mp)
+	kx2 := utils.RescalePoints(wv1, (*dt))
+	kv2 := utils.RescalePoints(acc, (*dt)*mp)
 
 	// move half-step forward
 	wx2 := utils.PointwiseAdd(pos, utils.RescalePoints(kx2, 0.5))
@@ -153,8 +156,8 @@ func RK4Step(
 		tree.EvaluateAt(&tracer.Tree, eps, acc)
 	}
 
-	kx3 := utils.RescalePoints(wv2, dt)
-	kv3 := utils.RescalePoints(acc, dt*mp)
+	kx3 := utils.RescalePoints(wv2, (*dt))
+	kv3 := utils.RescalePoints(acc, (*dt)*mp)
 
 	// step 4
 	wx3 := utils.PointwiseAdd(pos, kx3)
@@ -174,8 +177,8 @@ func RK4Step(
 		tree.EvaluateAt(&tracer.Tree, eps, acc)
 	}
 
-	kx4 := utils.RescalePoints(wv3, dt)
-	kv4 := utils.RescalePoints(acc, dt*mp) // note this is full step
+	kx4 := utils.RescalePoints(wv3, (*dt))
+	kv4 := utils.RescalePoints(acc, (*dt)*mp) // note this is full step
 
 	//
 
@@ -241,7 +244,9 @@ func GetCircularVelocity(x [][3]float64, r, particleMass float64) float64 {
 	return math.Sqrt(1. * npart * particleMass / r)
 }
 
-// Smooth potential
+// Functions for smooth potential profiles.
+// NOTE: all these functions have their characteristic
+// masses set to unity.
 
 func (e *Einasto) EnclosedMass(r float64) float64 {
 	// Mtot is the total mass

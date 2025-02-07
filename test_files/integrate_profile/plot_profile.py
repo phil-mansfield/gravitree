@@ -75,16 +75,17 @@ def main():
     apo, peri = profile.estimate_apsides(x0, v0)
 
     # plot    
-    integss = ["leapfrog", "rk4"]
+    integss = ["leapfrog", "rk4", "lfadp"]
     dtss = ["1e-2", "1e-3", "1e-4"]
 
     tfn = "time.dat"
     efn = "energy.dat"
     afn = "acc.dat"
-
     fig, ax = plt.subplots(1, 4, figsize=(15, 5))
-    colors = {"leapfrog": "cadetblue", "rk4": "firebrick"}
+    colors = {"leapfrog": "cadetblue", "rk4": "firebrick", "lfadp": "purple"}
     ls = ["-", "-.", "--"]
+    markers = {"leapfrog": "o", "rk4": "o", "lfadp": "^"}
+    sizes = {"leapfrog": 0.1, "rk4": 0.1, "lfadp": 1.0}
 
     r_peri = []
     r_apo = []
@@ -98,17 +99,17 @@ def main():
             t = np.loadtxt(os.path.join(directory, tfn))
 
             e_err = np.abs(1 - e / e[0])
-            ax[0].plot(t, e_err, color=colors[integs], ls=ls[j], alpha=0.2)
+            ax[0].plot(t, e_err, color=colors[integs], ls=ls[j], alpha=0.2, marker=markers[integs], markersize=sizes[integs])
             traj_k = get_trajectory(
                 os.path.join(directory, "t_%s.dat"), 0, np.arange(0, len(e), 1)
             )
 
             r_k = np.sqrt(np.sum(traj_k**2, axis=1))
 
-            ax[1].plot(t, r_k, color=colors[integs], ls=ls[j], alpha=0.2)
+            ax[1].plot(t, r_k, color=colors[integs], ls=ls[j], alpha=0.2, marker=markers[integs], markersize=sizes[integs])
 
             ax[2].plot(
-                traj_k[:, 0], traj_k[:, 1], color=colors[integs], ls=ls[j], alpha=0.2
+                traj_k[:, 0], traj_k[:, 1], color=colors[integs], ls=ls[j], alpha=0.2, marker=markers[integs], markersize=sizes[integs]
             )
 
             r_apo.append(np.min(r_k))
@@ -119,8 +120,9 @@ def main():
     ax[0].plot([], [], c="k", ls="-.", label=r"$dt = 10^{-3}$")
     ax[0].plot([], [], c="k", ls="--", label=r"$dt = 10^{-4}$")
 
-    ax[2].plot([], [], c="cadetblue", ls="-", label=r"leapfrog")
-    ax[2].plot([], [], c="firebrick", ls="-", label=r"rk4")
+    ax[2].plot([], [], c="cadetblue", ls="-", marker="o", markersize=0.1, label=r"leapfrog")
+    ax[2].plot([], [], c="firebrick", ls="-", marker="o", markersize=0.1, label=r"rk4")
+    ax[2].plot([], [], c="purple", ls="-", marker="^", markersize=1.0, label=r"adaptive")
     ax[2].legend()
     ax[0].legend()
 
