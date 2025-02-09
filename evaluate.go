@@ -4,21 +4,21 @@ import "fmt"
 
 type Quantity interface {
 	Len() int
-	TwoSidedLeaf(t *Tree, i int)        // Evaluate quantity within i
-	Approximate(t, t2 *Tree, i, j int)  // Approximate quantity of j at i
-	OneSidedLeaf(t, t2 *Tree, i, j int) // Evaluate quantity of j at i
+	TwoSidedLeaf(t *Tree, i int)          // Evaluate quantity within i
+	Approximate(t, t2 *Tree, i1, i2 int)  // Approximate quantity of j at i
+	OneSidedLeaf(t, t2 *Tree, i1, i2 int) // Evaluate quantity of j at i
 }
 
-func (t1 *Tree) useApproximation(t2 *Tree, i, j int) bool {
-	nodei, nodej := &t2.Nodes[i], &t1.Nodes[j]
+func (t1 *Tree) useApproximation(t2 *Tree, i1, i2 int) bool {
+	node2, node1 := &t2.Nodes[i2], &t1.Nodes[i1]
 
-	xi, xj := &nodei.Center, &nodej.Center
-	dx := xj[0] - xi[0]
-	dy := xj[1] - xi[1]
-	dz := xj[2] - xi[2]
+	x_i1, x_i2 := &node1.Center, &node2.Center
+	dx := x_i2[0] - x_i1[0]
+	dy := x_i2[1] - x_i1[1]
+	dz := x_i2[2] - x_i1[2]
 	dx2 := dx*dx + dy*dy + dz*dz
 
-	return dx2 > nodei.RMax2+nodej.ROpen2 || dx2 < t2.eps2
+	return dx2 > node2.RMax2+node1.ROpen2 || dx2 < t2.eps2
 }
 
 func (t *Tree) Evaluate(eps float64, q Quantity) {
@@ -54,16 +54,16 @@ func (t *Tree) walkNodeEvaluate(i, j int, q Quantity) {
 
 // Same function as walkNodeEvaluate except it calculates quantities
 // for a secondary tree.
-func (t1 *Tree) walkNodeEvaluateAt(t2 *Tree, i, j int, q Quantity) {
-	target := &t1.Nodes[j]
+func (t1 *Tree) walkNodeEvaluateAt(t2 *Tree, i1, i2 int, q Quantity) {
+	target := &t1.Nodes[i1]
 
-	if t1.useApproximation(t2, i, j) {
-		q.Approximate(t1, t2, i, j) // passing in the secondary tree
+	if t1.useApproximation(t2, i1, i2) {
+		q.Approximate(t1, t2, i1, i2) // passing in the secondary tree
 	} else if target.Left == -1 {
-		q.OneSidedLeaf(t1, t2, i, j)
+		q.OneSidedLeaf(t1, t2, i1, i2)
 	} else {
-		t1.walkNodeEvaluateAt(t2, i, target.Left, q)
-		t1.walkNodeEvaluateAt(t2, i, target.Right, q)
+		t1.walkNodeEvaluateAt(t2, target.Left, i2, q)
+		t1.walkNodeEvaluateAt(t2, target.Right, i2, q)
 	}
 }
 
@@ -81,11 +81,6 @@ func (t1 *Tree) EvaluateAt(t2 *Tree, eps float64, q Quantity) {
 	//
 	// (It's totally possible that we want this to work without the secondary tree.)
 	// panic("NYI")
-
-	if t2.LeafSize != 1 {
-		panic("Only works if second tree has a leaf size of 1.")
-	}
-
 	if q.Len() != len(t2.Points) {
 		panic(fmt.Sprintf("Tree has %d points, but len(q) = %d",
 			len(t2.Nodes), q.Len()))
@@ -94,9 +89,9 @@ func (t1 *Tree) EvaluateAt(t2 *Tree, eps float64, q Quantity) {
 	t1.eps2 = eps * eps
 
 	// loop over the t2 nodes
-	for i := range t2.Nodes {
-		if t2.Nodes[i].Left == -1 {
-			t1.walkNodeEvaluateAt(t2, i, 0, q)
+	for i2 := range t2.Nodes {
+		if t2.Nodes[i2].Left == -1 {
+			t1.walkNodeEvaluateAt(t2, 0, i2, q)
 		}
 	}
 }

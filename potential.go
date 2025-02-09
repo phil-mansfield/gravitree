@@ -32,7 +32,7 @@ func (phi Potential) TwoSidedLeaf(t *Tree, i int) {
 	}
 }
 
-func (phi Potential) Approximate(t1, t2 *Tree, i2, i1 int) {
+func (phi Potential) Approximate(t1, t2 *Tree, i1, i2 int) {
 	// writes the approximated potential for nodes in
 	// t2 from nodes in t1
 	switch t2.Order {
@@ -53,7 +53,7 @@ func (phi Potential) Approximate(t1, t2 *Tree, i2, i1 int) {
 			dy := x_i1[1] - x_i2[1]
 			dz := x_i1[2] - x_i2[2]
 			dx2 := dx*dx + dy*dy + dz*dz
-			phi[idx_i2] += pointPotential(dx2, t2.eps2) * mass_i1
+			phi[idx_i2] += pointPotential(dx2, t1.eps2) * mass_i1
 		}
 	case Quadrupole:
 		// TODO: Implement (Plummer) quadrupole appoximation of potential
@@ -63,7 +63,7 @@ func (phi Potential) Approximate(t1, t2 *Tree, i2, i1 int) {
 	}
 }
 
-func (phi Potential) OneSidedLeaf(t1, t2 *Tree, i2, i1 int) {
+func (phi Potential) OneSidedLeaf(t1, t2 *Tree, i1, i2 int) {
 	node_i2, node_i1 := &t2.Nodes[i2], &t1.Nodes[i1]
 
 	for i2 := node_i2.Start; i2 < node_i2.End; i2++ {
@@ -75,7 +75,7 @@ func (phi Potential) OneSidedLeaf(t1, t2 *Tree, i2, i1 int) {
 			dy := x_i1[1] - x_i2[1]
 			dz := x_i1[2] - x_i2[2]
 			dx2 := dx*dx + dy*dy + dz*dz
-			phi[idx_i2] += pointPotential(dx2, t2.eps2)
+			phi[idx_i2] += pointPotential(dx2, t1.eps2)
 		}
 	}
 }
@@ -103,9 +103,9 @@ func BruteForcePotentialAt(eps float64, x1, x2 [][3]float64, phi []float64) {
 			dx := x2[j][0] - x1[i][0]
 			dy := x2[j][1] - x1[i][1]
 			dz := x2[j][2] - x1[i][2]
-			dx2 := dx*dx + dy*dy + dz*dz
+			dx2 := dx*dx + dy*dy + dz*dz + eps2
 
-			phiij := 1.0 / math.Sqrt(dx2+eps2)
+			phiij := 1.0 / math.Sqrt(dx2)
 			phi[j] -= phiij
 		}
 	}

@@ -35,9 +35,9 @@ func TestPotentialPrimitives(t *testing.T) {
 		case 0:
 			phi.TwoSidedLeaf(tree, 0)
 		case 1:
-			phi.OneSidedLeaf(tree, tree, 0, 1)
+			phi.OneSidedLeaf(tree, tree, 1, 0)
 		case 2:
-			phi.Approximate(tree, tree, 0, 1)
+			phi.Approximate(tree, tree, 1, 0)
 		}
 
 		if !multArrayAlmostEq(phi, 1.0, test.phi, 1e-3) {
@@ -51,9 +51,9 @@ func TestPotentialPrimitives(t *testing.T) {
 		case 0:
 			phi.TwoSidedLeaf(tree, 0)
 		case 1:
-			phi.OneSidedLeaf(tree, tree, 0, 1)
+			phi.OneSidedLeaf(tree, tree, 1, 0)
 		case 2:
-			phi.Approximate(tree, tree, 0, 1)
+			phi.Approximate(tree, tree, 1, 0)
 		}
 
 		if !multArrayAlmostEq(phi, 2.0, test.phi, 1e-3) {

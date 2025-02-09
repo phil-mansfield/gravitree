@@ -27,3 +27,6 @@ tmp/
 
 # text files containing randomly generated points
 *.dat
+
+# Plot files
+*.png
