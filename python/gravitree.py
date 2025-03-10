@@ -270,7 +270,7 @@ class Tree(object):
         return a
 
 def unbind(t, v, iters=-1, brute_force=False, return_diagnostics=False,
-           method="direct"):
+           method="inverse"):
     """ unbind performs an unbinding operation on the particles contained
     in a tree and returns the energy of the particles.
 
@@ -290,7 +290,8 @@ def unbind(t, v, iters=-1, brute_force=False, return_diagnostics=False,
     "direct" - The standard naive unbinding where a tree is constructed from
     the particles which were bound in the previous are unbound again.
     "inverse" - A version of HBT+'s umbinding routine where a tree is made for
-    the unbound particles, not the bound ones
+    the unbound particles, not the bound ones. I do things a little bit
+    differently from HBT+ (I switch from direct to inverse when the ratio is )
     """
 
     eps, mp, G, param, x = t.eps, t.mp, t.G, t.param, t.x
