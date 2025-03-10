@@ -2,6 +2,7 @@ import ctypes
 import numpy as np
 import numpy.ctypeslib as ctypeslib
 import os.path as path
+import time
 
 """ gravitree.py is a Python wrapper around the Go gravitree package. It
 consists of two features:
@@ -116,7 +117,7 @@ _c_potential.argtypes = [
 # units: [m^3 / (kg s^2)]
 G_MKS = 6.67430e-11
 # units: [kpc (km/2)^2 / Msun]
-G_COSMO = 4.30092e6
+G_COSMO = 4.30092e-6
 # Multiply cosmological accelerations [(km/s)^2/kpc] by this to convert
 # to kpc/Gyr^2
 COSMO_ACC_TO_KPC_GYR_ACC = 1.045
@@ -268,51 +269,92 @@ class Tree(object):
         a *= self.mp*self.G
         return a
 
-def unbind(x, v, eps, mp, G, iters=-1, method="full_unbinding",
-           brute_force=False, param=None):
+def unbind(t, v, iters=-1, brute_force=False, return_diagnostics=False,
+           method="direct"):
+    """ unbind performs an unbinding operation on the particles contained
+    in a tree and returns the energy of the particles.
+
+    t - a Tree instance
+    v - the velocity of each particle in the same units at 
+    iters - the maximum number of iterations to use. If set to -1, iterate
+    until convergence
+    brute_force - if True, use an O(N^2) exact brute-force calculation
+    return_diagnostic - if True, change the return value to (E, d), where E is
+    the normal energy return value and d is a list of unbinding information at
+    the end of every iter. Each element in d is a tuple (n_tot, n_bound, dt),
+    where n_tot is the total number of particles considered that iteration,
+    n_bound is the number that were bound at the end of the iteration, and 
+    dt is the number of seconds the iteration took.
+
+    Currently supported methods:
+    "direct" - The standard naive unbinding where a tree is constructed from
+    the particles which were bound in the previous are unbound again.
+    "inverse" - A version of HBT+'s umbinding routine where a tree is made for
+    the unbound particles, not the bound ones
+    """
+
+    eps, mp, G, param, x = t.eps, t.mp, t.G, t.param, t.x
     ke = np.sum(v**2, axis=1)/2
-    if method == "recompute":
+    pe = np.zeros(len(v))
+    d = []
+    
+    if method == "direct":
         ok_prev = np.ones(len(ke), dtype=bool)
         n = 0
         while iters == -1 or n < iters:
+            t0 = time.time()
+            
             t = Tree(x[ok_prev], eps, mp, G, param=param)
-            pr[~ok_prev] = -np.inf
+            pe[~ok_prev] = np.inf
             pe[ok_prev] = t.potential(brute_force=brute_force)
             ok = pe + ke < 0
+            
+            t1 = time.time()
 
+            if return_diagnostics:
+                d.append((np.sum(ok_prev), np.sum(ok), t1 - t0))
+            
+            n += 1
             if np.all(ok_prev == ok): break
             ok_prev = ok
-            n += 1
+        ok_prev = ok
+    elif method == "inverse":
+        ok_prev = np.ones(len(ke), dtype=bool)
+        n = 0
+        while iters == -1 or n < iters:
+            t0 = time.time()
 
-    elif method == "HBT+":
-        raise ValueError("HBT+ method not currently supported.")
+            if n == 0 or np.sum(ok_prev)/4 < np.sum(is_changed):
+                t = Tree(x[ok_prev], eps, mp, G, param=param)
+                pe[~ok_prev] = np.inf
+                pe[ok_prev] = t.potential(brute_force=brute_force)
+            else:
+                t = Tree(x[is_changed], eps, mp, G, param=param)
+                pe[~ok_prev] = np.inf
+                pe[ok_prev] -= t.potential(x[ok_prev],
+                                           brute_force=brute_force)
+
+            ok = pe + ke < 0            
+            t1 = time.time()
+
+            if return_diagnostics:
+                d.append((np.sum(ok_prev), np.sum(ok), t1 - t0))
+            
+            n += 1
+            if np.all(ok_prev == ok): break
+            is_changed = (~ok) & ok_prev
+            ok_prev = ok
+        ok_prev = ok
     else:
         raise ValueError("Unrecognized binding energy method, '%s'" % method)
 
-    return pe + ke, ok
+    pe[~ok] = np.inf
     
-"""
-def binding_energy(x, v, mp, eps, n_iter=1, ok=None):
-    if ok is not None: x, v = x[ok], v[ok]
-    n = len(x)
-    E = np.zeros(n, dtype=np.float64)
-    x = np.ascontiguousarray(x.reshape((3*n,)), dtype=np.float64)
-    v = np.ascontiguousarray(v.reshape((3*n,)), dtype=np.float64)
-    _c_iterative_binding_energy(n, x, v, mp, eps, n_iter, E)
-    if ok is not None:
-        EE = np.zeros(len(ok))
-        EE[ok] = E
-        E = EE
-    return E
-
-def potential_energy(x, mp, eps):
-    n = len(x)
-    E = np.zeros(len(x), dtype=np.float64)
-    x = np.ascontiguousarray(x.reshape((3*n,)), dtype=np.float64)
-    _c_potential_energy(n, x, mp, eps, E)
-    return E
-"""
-
+    if return_diagnostics:
+        return pe + ke, d
+    else:
+        return pe + ke
+    
 def test():
     eps = 0.0
     mp = 2.0
