@@ -32,13 +32,14 @@ func (t *Tree) Evaluate(eps float64, q Quantity) {
 	for i := range t.Nodes {
 		// Only compute the potential at the leaf nodes.
 		if t.Nodes[i].Left == -1 {
-			t.walkNodeEvaluate(i, 0, q)
+			t.walkNodeEvaluate(0, i, q)
 		}
 	}
 }
 
+
 func (t *Tree) walkNodeEvaluate(i, j int, q Quantity) {
-	target := &t.Nodes[j]
+	target := &t.Nodes[i]
 
 	if i == j {
 		q.TwoSidedLeaf(t, i)
@@ -47,8 +48,8 @@ func (t *Tree) walkNodeEvaluate(i, j int, q Quantity) {
 	} else if target.Left == -1 {
 		q.OneSidedLeaf(t, t, i, j) // passing in the same tree
 	} else {
-		t.walkNodeEvaluate(i, target.Left, q)
-		t.walkNodeEvaluate(i, target.Right, q)
+		t.walkNodeEvaluate(target.Left, j, q)
+		t.walkNodeEvaluate(target.Right, j, q)
 	}
 }
 
