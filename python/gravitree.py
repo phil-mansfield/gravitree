@@ -21,7 +21,7 @@ Example usage:
     # Tree initialization
 
     my_non_default_params = gravitree.TreeParameters(leaf_size=64)
-    t = gravitree.Tree(x, mp, eps, G, param=my_non_default_params)
+    t = gravitree.Tree(x, eps, mp, G, param=my_non_default_params)
 
     # Compute quantities
 
