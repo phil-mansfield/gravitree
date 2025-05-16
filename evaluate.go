@@ -1,6 +1,8 @@
 package gravitree
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Quantity interface {
 	Len() int
@@ -28,13 +30,11 @@ func (t *Tree) Evaluate(eps float64, q Quantity) {
 	}
 
 	t.eps2 = eps * eps
-
-	for i := range t.Nodes {
-		// Only compute the potential at the leaf nodes.
+	WorkerQueue(nWorkers, len(t.Nodes), func(worker, i int) {
 		if t.Nodes[i].Left == -1 {
 			t.walkNodeEvaluate(0, i, q)
 		}
-	}
+	})
 }
 
 
@@ -81,7 +81,6 @@ func (t1 *Tree) EvaluateAt(t2 *Tree, eps float64, q Quantity) {
 	// walkNodeEvaluate will need to be updated so that the same tree is passed twice.)
 	//
 	// (It's totally possible that we want this to work without the secondary tree.)
-	// panic("NYI")
 	if q.Len() != len(t2.Points) {
 		panic(fmt.Sprintf("Tree has %d points, but len(q) = %d",
 			len(t2.Nodes), q.Len()))

@@ -1,6 +1,6 @@
 package gravitree
 
-import (
+import (	
 	"testing"
 	"github.com/phil-mansfield/symtable"
 )
@@ -122,9 +122,9 @@ func BenchmarkBruteForce_3e3(b *testing.B) {
 func BenchmarkBruteForce_1e4(b *testing.B) {
 	benchmarkBruteForce(b, int(1e4), "test_files/einasto_n=4_a=18.dat")
 }
-func BenchmarkBruteForce_3e4(b *testing.B) {
-	benchmarkBruteForce(b, int(3e4), "test_files/einasto_n=4.5_a=18.dat")
-}
-func BenchmarkBruteForce_1e5(b *testing.B) {
-	benchmarkBruteForce(b, int(1e5), "test_files/einasto_n=5_a=18.dat")
-}
+//func BenchmarkBruteForce_3e4(b *testing.B) {
+//	benchmarkBruteForce(b, int(3e4), "test_files/einasto_n=4.5_a=18.dat")
+//}
+//func BenchmarkBruteForce_1e5(b *testing.B) {
+//	benchmarkBruteForce(b, int(1e5), "test_files/einasto_n=5_a=18.dat")
+//}
