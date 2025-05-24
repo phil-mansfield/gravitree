@@ -19,8 +19,8 @@ func (t1 *Tree) useApproximation(t2 *Tree, i1, i2 int) bool {
 	dy := x_i2[1] - x_i1[1]
 	dz := x_i2[2] - x_i1[2]
 	dx2 := dx*dx + dy*dy + dz*dz
-
-	return dx2 > node2.RMax2+node1.ROpen2 || dx2 < t2.eps2
+	
+	return dx2 > node2.RMax2+node1.ROpen2
 }
 
 func (t *Tree) Evaluate(eps float64, q Quantity) {
@@ -30,7 +30,7 @@ func (t *Tree) Evaluate(eps float64, q Quantity) {
 	}
 
 	t.eps2 = eps * eps
-	WorkerQueue(nWorkers, len(t.Nodes), func(worker, i int) {
+	WorkerQueue(nWorkers, len(t.Nodes), func(worker, i int) {		
 		if t.Nodes[i].Left == -1 {
 			t.walkNodeEvaluate(0, i, q)
 		}
@@ -40,7 +40,7 @@ func (t *Tree) Evaluate(eps float64, q Quantity) {
 
 func (t *Tree) walkNodeEvaluate(i, j int, q Quantity) {
 	target := &t.Nodes[i]
-
+	
 	if i == j {
 		q.TwoSidedLeaf(t, i)
 	} else if t.useApproximation(t, i, j) {
@@ -69,18 +69,6 @@ func (t1 *Tree) walkNodeEvaluateAt(t2 *Tree, i1, i2 int, q Quantity) {
 }
 
 func (t1 *Tree) EvaluateAt(t2 *Tree, eps float64, q Quantity) {
-	// TODO: Write an alternate version of Evaluate which takes in a set of test
-	// points and updates the Quantity accordingly. For now, let's have the other points
-	// passed to us as a Tree. We'll want to do new benchmarking of how much refinement
-	// this new tree should have. My guess is that for small point sets, we'll want to
-	// set the minimum leaf size to 1.
-	//
-	// This new funciton will only need to call OneSidedLeaf and Approximate. Those
-	// two methods of the Quantity interface will need to be changed so they take in
-	// a separte tree for index i and and for index j (and then the vanilla
-	// walkNodeEvaluate will need to be updated so that the same tree is passed twice.)
-	//
-	// (It's totally possible that we want this to work without the secondary tree.)
 	if q.Len() != len(t2.Points) {
 		panic(fmt.Sprintf("Tree has %d points, but len(q) = %d",
 			len(t2.Nodes), q.Len()))
@@ -88,10 +76,9 @@ func (t1 *Tree) EvaluateAt(t2 *Tree, eps float64, q Quantity) {
 
 	t1.eps2 = eps * eps
 
-	// loop over the t2 nodes
-	for i2 := range t2.Nodes {
+	WorkerQueue(nWorkers, len(t2.Nodes), func(worker, i2 int) {
 		if t2.Nodes[i2].Left == -1 {
 			t1.walkNodeEvaluateAt(t2, 0, i2, q)
 		}
-	}
+	})
 }
