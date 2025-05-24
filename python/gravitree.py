@@ -96,6 +96,9 @@ _c_acceleration_at = _wrap_c_func(gravitree_lib.cAccelerationAt, "iDiDdDD")
 _c_bf_acceleration = _wrap_c_func(gravitree_lib.cBruteForceAcceleration, "iDdD")
 _c_bf_acceleration_at = _wrap_c_func(gravitree_lib.cBruteForceAccelerationAt, "iDiDdD")
 
+_c_set_threads = _wrap_c_func(gravitree_lib.cSetThreads, "i")
+
+"""
 _c_potential = gravitree_lib.cPotential
 _c_potential.restype = None
 _c_potential.argtypes = [
@@ -105,6 +108,7 @@ _c_potential.argtypes = [
     ctypeslib.ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
     ctypeslib.ndpointer(ctypes.c_double, flags="C_CONTIGUOUS")
 ]
+"""
 
 #############
 # Constants #
@@ -139,7 +143,7 @@ QUADRUPOLE_ORDER = 1 # TODO: implement quadrupole order
 
 class TreeParameters(object):
     def __init__(self, leaf_size=16, criteria=PKDGRAV_CRITERIA,
-                 theta=0.7, order=MONOPOLE_ORDER):
+                 theta=0.7, order=MONOPOLE_ORDER, cpus=-1):
         """ TreeParameters is a class containing configuration options for
         gravitree. The average user should not mess around with this unless
         they're comfortable doing manual tests on force accuracy.
@@ -151,11 +155,16 @@ class TreeParameters(object):
         controlling approximaiton accuracy. For simplicity, all these
         parameters are called "theta", following the Barnes-Hut convention.
         order - the approximation order used when a node is not split up.
+        cpus - the number of CPUs to split work over on a shared memory machine.
+        By default, gravitree detect the number of cores it has access to and 
+        use all of them. You might not want to do this, e.g., on the login node
+        of a shared computing cluster.
         """
         self.leaf_size = leaf_size
         self.criteria = criteria
         self.theta = theta
         self.order = order
+        self.cpus = cpus
 
     def to_array(self):
         """ to_array converts TreeParameters to a floating point array so
@@ -205,6 +214,9 @@ class Tree(object):
         potential. If set to True, the calculation will be done with an O(n^2)
         brute force calculation
         """
+
+        _c_set_threads(self.param.cpus)
+        
         n0 = len(self.x)
         x0 = np.ascontiguousarray(self.x.reshape(3*n0), dtype=np.float64)
         if x is None:
@@ -244,6 +256,9 @@ class Tree(object):
         is almost certianly not the set of units you want. Multiply this by
         gravitree.
         """
+
+        _c_set_threads(self.param.cpus)
+        
         n0 = len(self.x)
         x0 = np.ascontiguousarray(self.x.reshape(3*n0), dtype=np.float64)
         if x is None:

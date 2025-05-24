@@ -7,40 +7,6 @@ import (
 	"unsafe"
 )
 
-/*
-//  //export cIterativeBindingEnergy
-func cIterativeBindingEnergy(
-	np C.int, x *C.double, v *C.double,
-	mp C.double, eps C.double, nIter C.int, E *C.double,
-) {
-	gx := unsafe.Slice((*[3]float64)(unsafe.Pointer(x)), int(np))
-	gv := unsafe.Slice((*[3]float64)(unsafe.Pointer(v)), int(np))	
-	gE := unsafe.Slice((*float64)(unsafe.Pointer(E)), int(np))	
-
-	gravitree.IterativeBindingEnergy(
-		gx, gv, float64(mp), float64(eps), int(nIter), gE)
-}
-
-//export cSplitAceleration
-func cSplitAcceleration(
-	np C.longlong, x *C.double, mp, eps C.double,
-	nActive, nTest C.longlong,
-	a *C.double,
-) {
-	np := nActive + nTest
-	gx := unsafe.Slice((*[3]float64)(unsafe.Pointer(x)), int(np))
-	ga := unsafe.Slice((*[3]float64)(unsafe.Pointer(a)), int(np))
-
-	t1 := gravitree.NewTree(gx[:nActive])
-	t2 := gravitree.NewArrayTree(g[nActive:])
-	acc := gravitree.Acceleration(ga[:nActive])
-	t1.EvaluateAt(t2, eps, acc)
-
-	for i := range {
-	}
-}
-*/
-
 func paramToOptions(param *C.double) gravitree.TreeOptions {
 	p := unsafe.Slice((*float64)(unsafe.Pointer(param)), 4)
 	
@@ -162,6 +128,11 @@ func cBruteForceAccelerationAt(
 	ga := unsafe.Slice((*[3]float64)(unsafe.Pointer(a)), int(n1))
 
 	gravitree.BruteForceAccelerationAt(float64(eps), gx0, gx1, ga)
+}
+
+//export cSetThreads
+func cSetThreads(n C.longlong) {
+	gravitree.SetThreads(int(n))
 }
 
 func main() { }
