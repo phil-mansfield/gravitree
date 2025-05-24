@@ -5,6 +5,11 @@ import (
 	"os"
 
 	"github.com/phil-mansfield/gravitree"
+	"github.com/phil-mansfield/symtable"
+)
+
+const (
+	UseEvaluateAt = true
 )
 
 func writeAcceleration(filename string, acc [][3]float64) {
@@ -15,6 +20,27 @@ func writeAcceleration(filename string, acc [][3]float64) {
 	for i := range acc {
 		fmt.Fprintf(f, "%.10g %.10g %.10g\n", acc[i][0], acc[i][1], acc[i][2])
 	}
+}
+
+func readPointFile(filename string) [][3]float64{
+
+    t := symtable.TextFile(filename)
+    cols := t.ReadFloat64s([]int{0, 1, 2}) // column indices                    
+    xs := cols[0]
+    ys := cols[1]
+    zs := cols[2]
+
+    var result [][3]float64
+
+    for i := 0; i < len(xs); i++ {
+        var point [3]float64
+        point[0] = xs[i]
+        point[1] = ys[i]
+        point[2] = zs[i]
+        result = append(result, point)
+    }
+
+    return result
 }
 
 func main() {
@@ -44,7 +70,14 @@ func main() {
 					opt.Theta = thetas[it]
 
 					tree := gravitree.NewTree(x, opt)
-					tree.Evaluate(0.0, acc)
+					if UseEvaluateAt {
+						tree.Evaluate(1e-6, acc)
+						for i := range acc {
+							acc[i] = [3]float64{ }
+						}
+					} else {
+						tree.Evaluate(1e-6, acc)
+					}
 				}
 				filename = fmt.Sprintf("force_table_n=%s_ic=%d_it=%d.dat",
 					nStrs[in], ic, it)

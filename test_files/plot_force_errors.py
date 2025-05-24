@@ -66,6 +66,6 @@ def main():
 	plt.xlabel(r"$\theta$")
 	plt.ylabel(r"$|\Delta \vec{a}|/|\vec{a}|$")
 	plt.legend(loc="lower right", frameon=True)
-	plt.show()
+	plt.savefig("plots/force_errors.png")
 
 if __name__ == "__main__": main()
