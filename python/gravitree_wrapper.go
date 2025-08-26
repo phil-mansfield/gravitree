@@ -1,47 +1,15 @@
 package main
 
+//#include <stdint.h>
+import "C"
 import (
 	"github.com/phil-mansfield/gravitree"
-
-	"C"
+	"runtime/cgo"
 	"unsafe"
 )
 
-/*
-//  //export cIterativeBindingEnergy
-func cIterativeBindingEnergy(
-	np C.int, x *C.double, v *C.double,
-	mp C.double, eps C.double, nIter C.int, E *C.double,
-) {
-	gx := unsafe.Slice((*[3]float64)(unsafe.Pointer(x)), int(np))
-	gv := unsafe.Slice((*[3]float64)(unsafe.Pointer(v)), int(np))	
-	gE := unsafe.Slice((*float64)(unsafe.Pointer(E)), int(np))	
-
-	gravitree.IterativeBindingEnergy(
-		gx, gv, float64(mp), float64(eps), int(nIter), gE)
-}
-
-//export cSplitAceleration
-func cSplitAcceleration(
-	np C.longlong, x *C.double, mp, eps C.double,
-	nActive, nTest C.longlong,
-	a *C.double,
-) {
-	np := nActive + nTest
-	gx := unsafe.Slice((*[3]float64)(unsafe.Pointer(x)), int(np))
-	ga := unsafe.Slice((*[3]float64)(unsafe.Pointer(a)), int(np))
-
-	t1 := gravitree.NewTree(gx[:nActive])
-	t2 := gravitree.NewArrayTree(g[nActive:])
-	acc := gravitree.Acceleration(ga[:nActive])
-	t1.EvaluateAt(t2, eps, acc)
-
-	for i := range {
-	}
-}
-*/
-
 func paramToOptions(param *C.double) gravitree.TreeOptions {
+	// TODO: turn into a json file: easier to debug and add to
 	p := unsafe.Slice((*float64)(unsafe.Pointer(param)), 4)
 	
 	return gravitree.TreeOptions{
@@ -52,34 +20,53 @@ func paramToOptions(param *C.double) gravitree.TreeOptions {
 	}
 }
 
-//export cPotential
-func cPotential(
+//export cNewTree
+func cNewTree(
 	np C.longlong, x *C.double,
-	eps C.double, E *C.double,
 	param *C.double,
-) {
+) C.uintptr_t {
 	gx := unsafe.Slice((*[3]float64)(unsafe.Pointer(x)), int(np))
-	gE := unsafe.Slice((*float64)(unsafe.Pointer(E)), int(np))
-
 	opt := paramToOptions(param)
 	tree := gravitree.NewTree(gx, opt)
+
+	return C.uintptr_t(cgo.NewHandle(tree))
+}
+
+//export cFreeTree
+func cFreeTree(
+	ptr C.uintptr_t,
+) {
+	h := cgo.Handle(ptr)
+	h.Delete()
+}
+
+//export cPotential
+func cPotential(
+	ptr C.uintptr_t,
+	eps C.double, E *C.double,
+) {
+	h := cgo.Handle(ptr)
+	tree := h.Value().(*gravitree.Tree)
+	
+	gE := unsafe.Slice((*float64)(unsafe.Pointer(E)), len(tree.Points))
 	tree.Evaluate(float64(eps), gravitree.Potential(gE))
 }
 
 //export cPotentialAt
 func cPotentialAt(
-	n0 C.longlong, x0 *C.double,
-	n1 C.longlong, x1 *C.double,
+	ptr C.uintptr_t,
+	np C.longlong, x *C.double,
 	eps C.double, E *C.double,
-	param *C.double,
 ) {
-	gx0 := unsafe.Slice((*[3]float64)(unsafe.Pointer(x0)), int(n0))
-	gx1 := unsafe.Slice((*[3]float64)(unsafe.Pointer(x1)), int(n1))
-	gE := unsafe.Slice((*float64)(unsafe.Pointer(E)), int(n1))
+	h := cgo.Handle(ptr)
+	t0 := h.Value().(*gravitree.Tree)
+	
+	gx := unsafe.Slice((*[3]float64)(unsafe.Pointer(x)), int(np))
+	gE := unsafe.Slice((*float64)(unsafe.Pointer(E)), int(np))
 
-	opt := paramToOptions(param)
-	t0 := gravitree.NewTree(gx0, opt)
-	t1 := &gravitree.NewArrayTree(gx1).Tree
+	// TODO: figure out a new way to handle this
+	t1 := &gravitree.NewArrayTree(gx).Tree
+	
 	t0.EvaluateAt(t1, float64(eps), gravitree.Potential(gE))
 }
 
@@ -110,31 +97,29 @@ func cBruteForcePotentialAt(
 
 //export cAcceleration
 func cAcceleration(
-	np C.longlong, x *C.double,
+	ptr C.uintptr_t,
 	eps C.double, a *C.double,
-	param *C.double,
 ) {
-	gx := unsafe.Slice((*[3]float64)(unsafe.Pointer(x)), int(np))
-	ga := unsafe.Slice((*[3]float64)(unsafe.Pointer(a)), int(np))
+	h := cgo.Handle(ptr)
+	tree := h.Value().(*gravitree.Tree)
+	
+	ga := unsafe.Slice((*[3]float64)(unsafe.Pointer(a)), len(tree.Points))
 
-	opt := paramToOptions(param)
-	tree := gravitree.NewTree(gx, opt)
 	tree.Evaluate(float64(eps), gravitree.Acceleration(ga))
 }
 
 //export cAccelerationAt
 func cAccelerationAt(
-	n0 C.longlong, x0 *C.double,
+	ptr C.uintptr_t,
 	n1 C.longlong, x1 *C.double,
 	eps C.double, a *C.double,
-	param *C.double,
 ) {
-	gx0 := unsafe.Slice((*[3]float64)(unsafe.Pointer(x0)), int(n0))
+	h := cgo.Handle(ptr)
+	t0 := h.Value().(*gravitree.Tree)
+	
 	gx1 := unsafe.Slice((*[3]float64)(unsafe.Pointer(x1)), int(n1))
 	ga := unsafe.Slice((*[3]float64)(unsafe.Pointer(a)), int(n1))
 
-	opt := paramToOptions(param)
-	t0 := gravitree.NewTree(gx0, opt)
 	t1 := &gravitree.NewArrayTree(gx1).Tree
 	t0.EvaluateAt(t1, float64(eps), gravitree.Acceleration(ga))
 }

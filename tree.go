@@ -367,17 +367,8 @@ func partition(x [][3]float64, idx []int, dim int, pivot float64) int {
 
 
 func (t *Tree) computeQuadrupoleMoment(i int) {
-	// TODO: Write a funciton which computes P & Q for node i. As far as I know,
-	// there's no divide-and-conquer style agorithm for computing this from sub-
-	// nodes, so you can just compute it node-by-node.
-	panic("NYI")
-}
-
-func (t *Tree) ShiftNodes(x [][3]float64) {
-	// TODO: write a function which "shifts" nodes /without reconstructing the tree/
-	// in response to position updates. This will mean updating the positions of all the
-	// particles stored in the tree, recomputing centers of mass, recomputing
-	// node "radii", and recomputing P and Q if the tree is using a quadrupole
-	// approximation.
+	// TODO: Write a funciton which computes P & Q for node i. As far as I
+	// know, there's no divide-and-conquer style agorithm for computing this
+	// from sub-nodes, so you can just compute it node-by-node.
 	panic("NYI")
 }

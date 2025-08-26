@@ -48,11 +48,12 @@ file_name = path.abspath(__file__)
 lib_name = path.join(path.dirname(file_name), "gravitree_wrapper.so")
 gravitree_lib = ctypes.cdll.LoadLibrary(lib_name)
 
-def _wrap_c_func(c_func, arg_string):
+def _wrap_c_func(c_func, arg_string, res_string=None):
     """ _wrap_c_function is an internal helper function which sets up result
     and argument types. c_func is an external function from a LoadLibrary
     call. arg_string is a string with one character for each argument. Those
     characters give the types of each argument:
+    u - uintptr_t
     i - integer
     I - integer array
     d - double
@@ -64,10 +65,23 @@ def _wrap_c_func(c_func, arg_string):
     # If you are copy-and-pasting this code into a new project, note that
     # sometimes you don't want restype = None. Read up on how this stuff works
     # before modifying it.
-    c_func.restype = None
+
+    if res_string == "u":
+        c_func.res_str = ctypes.c_uint64
+    elif res_string == "i":
+        c_func.res_str = ctypes.c_int
+    elif res_string == "d":
+        c_func.res_str = ctypes.c_float64
+    elif res_string is None:
+        c_func.restype = None
+    else:
+        raise ValueError("Unrecognized/unsupported res_string, '%s'" % res_str)
+        
     args = []
     for c in arg_string:
-        if c == "i":
+        if c == "u":
+            args.append(ctypes.c_uint64)
+        elif c == "i":
             args.append(ctypes.c_int)
         elif c == "d":
             args.append(ctypes.c_double)
@@ -83,27 +97,19 @@ def _wrap_c_func(c_func, arg_string):
             raise ValueError("Unrecognized type character, '%s'", c)
     c_func.argtypes = args
     return c_func
-        
 
-_c_potential = _wrap_c_func(gravitree_lib.cPotential, "iDdDD")
-_c_potential_at = _wrap_c_func(gravitree_lib.cPotentialAt, "iDiDdDD")
+_c_new_tree = _wrap_c_func(gravitree_lib.cNewTree, "iDD", "u")
+_c_free_tree = _wrap_c_func(gravitree_lib.cFreeTree, "u")
+
+_c_potential = _wrap_c_func(gravitree_lib.cPotential, "udD")
+_c_potential_at = _wrap_c_func(gravitree_lib.cPotentialAt, "uiDdD")
 _c_bf_potential = _wrap_c_func(gravitree_lib.cBruteForcePotential, "iDdD")
 _c_bf_potential_at = _wrap_c_func(gravitree_lib.cBruteForcePotentialAt, "iDiDdD")
 
-_c_acceleration = _wrap_c_func(gravitree_lib.cAcceleration, "iDdDD")
-_c_acceleration_at = _wrap_c_func(gravitree_lib.cAccelerationAt, "iDiDdDD")
+_c_acceleration = _wrap_c_func(gravitree_lib.cAcceleration, "udD")
+_c_acceleration_at = _wrap_c_func(gravitree_lib.cAccelerationAt, "uiDdD")
 _c_bf_acceleration = _wrap_c_func(gravitree_lib.cBruteForceAcceleration, "iDdD")
 _c_bf_acceleration_at = _wrap_c_func(gravitree_lib.cBruteForceAccelerationAt, "iDiDdD")
-
-_c_potential = gravitree_lib.cPotential
-_c_potential.restype = None
-_c_potential.argtypes = [
-    ctypes.c_int,
-    ctypeslib.ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-    ctypes.c_double,
-    ctypeslib.ndpointer(ctypes.c_double, flags="C_CONTIGUOUS"),
-    ctypeslib.ndpointer(ctypes.c_double, flags="C_CONTIGUOUS")
-]
 
 #############
 # Constants #
@@ -137,6 +143,7 @@ MONOPOLE_ORDER = 0
 QUADRUPOLE_ORDER = 1 # TODO: implement quadrupole order
 
 class TreeParameters(object):
+    # TODO: make this use json under the hood instead of a cutsom format.
     def __init__(self, leaf_size=16, criteria=PKDGRAV_CRITERIA,
                  theta=0.7, order=MONOPOLE_ORDER):
         """ TreeParameters is a class containing configuration options for
@@ -184,7 +191,11 @@ class Tree(object):
         I haven't figured out how to get Go to allocate the tree in a way that
         can be stored in Python's memory without errors yet.
         """
-        self.x = x
+
+        # If you get rid of this line, Python can collect the underlying array
+        # while Go is still using it.
+        self.x = np.ascontiguousarray(x.reshape(3*len(x)),
+                                      dtype=np.float64)
         self.eps = eps
         self.mp = mp
         self.G = G
@@ -193,6 +204,10 @@ class Tree(object):
             self.param = TreeParameters()
         else:
             self.param = param
+
+        # You also can't get rid of this.
+        self.param_array = self.param.to_array()
+        self.ptr = _c_new_tree(len(x), self.x, self.param_array)
         
     def potential(self, x=None, brute_force=False):
         """ potential computes the potential at each point
@@ -204,26 +219,27 @@ class Tree(object):
         potential. If set to True, the calculation will be done with an O(n^2)
         brute force calculation
         """
-        n0 = len(self.x)
-        x0 = np.ascontiguousarray(self.x.reshape(3*n0), dtype=np.float64)
+        n0 = len(self.x)//3
+        x0 = self.x
         if x is None:
             E = np.zeros(n0, dtype=np.float64)
             if brute_force:
-                _c_bf_potential(
-                    n0, x0, self.eps, E)
+                _c_bf_potential(n0, x0, self.eps, E)
             else:
-                _c_potential(
-                    n0, x0, self.eps, E, self.param.to_array())
+                _c_potential(self.ptr, self.eps, E)
         else:
             n1 = len(x)
+            # I don't think Python can free this array out from under
+            # Go mid-call.
             x1 = np.ascontiguousarray(x.reshape(3*n1), dtype=np.float64)
             E = np.zeros(n1, dtype=np.float64)
+            print(E.shape)
             if brute_force:
                 _c_bf_potential_at(
                     n0, x0, n1, x1, self.eps, E)
             else:
                 _c_potential_at(
-                    n0, x0, n1, x1, self.eps, E, self.param.to_array())
+                    self.ptr, n1, x1, self.eps, E)
 
         E *= self.mp*self.G
         return E
@@ -243,7 +259,7 @@ class Tree(object):
         is almost certianly not the set of units you want. Multiply this by
         gravitree.
         """
-        n0 = len(self.x)
+        n0 = len(self.x)//3
         x0 = np.ascontiguousarray(self.x.reshape(3*n0), dtype=np.float64)
         if x is None:
             a = np.zeros(3*n0, dtype=np.float64)
@@ -252,7 +268,7 @@ class Tree(object):
                     n0, x0, self.eps, a)
             else:
                 _c_acceleration(
-                    n0, x0, self.eps, a, self.param.to_array())
+                    self.ptr, self.eps, a)
         else:
             n1 = len(x)
             x1 = np.ascontiguousarray(x.reshape(3*n1), dtype=np.float64)
@@ -262,16 +278,20 @@ class Tree(object):
                     n0, x0, n1, x1, self.eps, a)
             else:
                 _c_acceleration_at(
-                    n0, x0, n1, x1, self.eps, a, self.param.to_array())
+                    self.ptr, n1, x1, self.eps, a)
                 
         a = a.reshape(len(a)//3, 3)
         a *= self.mp*self.G
         return a
 
+    def __del__(self):
+        _c_free_tree(self.ptr)
+        
+
 def unbind(x, v, eps, mp, G, iters=-1, method="full_unbinding",
            brute_force=False, param=None):
     ke = np.sum(v**2, axis=1)/2
-    if method == "recompute":
+    if method == "full_unbinding":
         ok_prev = np.ones(len(ke), dtype=bool)
         n = 0
         while iters == -1 or n < iters:
@@ -283,35 +303,12 @@ def unbind(x, v, eps, mp, G, iters=-1, method="full_unbinding",
             if np.all(ok_prev == ok): break
             ok_prev = ok
             n += 1
-
     elif method == "HBT+":
         raise ValueError("HBT+ method not currently supported.")
     else:
         raise ValueError("Unrecognized binding energy method, '%s'" % method)
 
     return pe + ke, ok
-    
-"""
-def binding_energy(x, v, mp, eps, n_iter=1, ok=None):
-    if ok is not None: x, v = x[ok], v[ok]
-    n = len(x)
-    E = np.zeros(n, dtype=np.float64)
-    x = np.ascontiguousarray(x.reshape((3*n,)), dtype=np.float64)
-    v = np.ascontiguousarray(v.reshape((3*n,)), dtype=np.float64)
-    _c_iterative_binding_energy(n, x, v, mp, eps, n_iter, E)
-    if ok is not None:
-        EE = np.zeros(len(ok))
-        EE[ok] = E
-        E = EE
-    return E
-
-def potential_energy(x, mp, eps):
-    n = len(x)
-    E = np.zeros(len(x), dtype=np.float64)
-    x = np.ascontiguousarray(x.reshape((3*n,)), dtype=np.float64)
-    _c_potential_energy(n, x, mp, eps, E)
-    return E
-"""
 
 def test():
     eps = 0.0
