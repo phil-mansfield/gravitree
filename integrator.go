@@ -216,6 +216,7 @@ func CalculateEnergy(
 	pos [][3]float64,
 	vel [][3]float64,
 	extPos [][3]float64,
+	mp float64,
 	eps float64,
 	ok []bool,
 ) []float64 {
@@ -232,7 +233,7 @@ func CalculateEnergy(
 			// kinetic term
 			res[i] = utils.GetNorm(vel[i]) * utils.GetNorm(vel[i]) / 2.0
 			// potential term
-			res[i] += pot[i]
+			res[i] += pot[i] * mp
 		}
 	}
 
